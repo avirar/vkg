@@ -2,6 +2,7 @@
 #include <cstring>
 #include <random>
 #include <cmath>
+#include <chrono>
 #include <iostream>
 
 Compute::Compute(Engine& engine) : m_engine(engine) {
@@ -190,12 +191,13 @@ void Compute::initializeParticles() {
 }
 
 void Compute::update(float dt, float sx, float sy, float sz,
-                     float sinRot, float cosRot, float arX, float arY) {
-    // The dispatch happens in dispatch() below
+                     float sinRot, float cosRot, float arX, float arY,
+                     bool reinit) {
     m_push.dt = dt;
     m_push.gravity = 0.01f;
     m_push.damping = 0.982f;
     m_push.particleCount = m_particleCount;
+    m_push.reinit = reinit ? 1u : 0u;
     m_push.singularityX = sx;
     m_push.singularityY = sy;
     m_push.singularityZ = sz;
@@ -205,6 +207,7 @@ void Compute::update(float dt, float sx, float sy, float sz,
     m_push.cameraOffset = 0.0f;
     m_push.aspectRatioX = arX;
     m_push.aspectRatioY = arY;
+    m_push.seed = (uint32_t)std::chrono::steady_clock::now().time_since_epoch().count();
 }
 
 void Compute::dispatch(VkCommandBuffer cmd) {

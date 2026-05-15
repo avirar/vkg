@@ -1,14 +1,17 @@
 #include "engine.h"
 #include "render.h"
 #include "compute.h"
+#include "simulation.h"
 #include <iostream>
 #include <chrono>
 #include <cmath>
 
 static Engine* g_engine = nullptr;
 
-static void framebufferResizeCallback(GLFWwindow*, int, int) {
-    if (g_engine) g_engine->setFramebufferResized();
+static void framebufferResizeCallback(GLFWwindow* window, int w, int h) {
+    if (g_engine) {
+        g_engine->setFramebufferResized();
+    }
 }
 
 int main() {
@@ -29,8 +32,10 @@ int main() {
         Engine engine(window);
         g_engine = &engine;
 
+        Simulation sim(1000);
+
         Compute compute(engine);
-        compute.init(1000); // Start with 1000 particles
+        compute.init(sim.state().particleCount);
 
         Renderer renderer(engine);
         renderer.setCompute(&compute);
@@ -43,16 +48,36 @@ int main() {
             if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
 
+            // Handle resize
+            {
+                int w, h;
+                glfwGetFramebufferSize(window, &w, &h);
+                if (w > 0 && h > 0) sim.resize((uint32_t)w, (uint32_t)h);
+            }
+
+            // Delta time
             auto now = std::chrono::high_resolution_clock::now();
             float dt = std::chrono::duration_cast<std::chrono::duration<float>>(now - lastTime).count();
             lastTime = now;
-            if (dt > 0.1f) dt = 0.1f; // Cap
+            if (dt > 0.1f) dt = 0.1f;
 
-            float angle = 0.0f; // placeholder rotation
-            compute.update(dt, 0, 0, 0, std::sin(angle), std::cos(angle), 1.0f, 1.0f);
+            // Update simulation
+            if (dt > 0.0f) {
+                sim.update(dt);
+            }
+
+            // Feed simulation state to compute shader
+            const auto& s = sim.state();
+            float angleRad = s.rotationAngle * 3.14159265f / 180.0f;
+            bool doReinit = sim.justReinitialized();
+            compute.update(dt,
+                s.singularityX, s.singularityY, s.singularityZ,
+                std::sin(angleRad), std::cos(angleRad),
+                s.aspectRatioX, s.aspectRatioY,
+                doReinit);
+            if (doReinit) sim.clearReinitFlag();
 
             if (!engine.beginFrame()) continue;
-
             renderer.drawFrame();
             engine.endFrame();
         }

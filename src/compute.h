@@ -8,6 +8,7 @@ struct ComputePushConstants {
     float gravity;
     float damping;
     uint32_t particleCount;
+    uint32_t reinit;
     float singularityX;
     float singularityY;
     float singularityZ;
@@ -17,6 +18,8 @@ struct ComputePushConstants {
     float cameraOffset;
     float aspectRatioX;
     float aspectRatioY;
+    uint32_t seed;
+    uint32_t _pad;
 };
 
 class Compute {
@@ -26,7 +29,8 @@ public:
 
     void init(uint32_t particleCount);
     void update(float dt, float singularityX, float singularityY, float singularityZ,
-                float sinRot, float cosRot, float aspectRatioX, float aspectRatioY);
+                float sinRot, float cosRot, float aspectRatioX, float aspectRatioY,
+                bool reinit);
     void dispatch(VkCommandBuffer cmd);
 
     VkBuffer outputBuffer() const { return m_particleBuffers[m_outputIndex]; }

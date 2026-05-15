@@ -49,6 +49,7 @@ add_executable(vkg
     src/engine.cpp
     src/render.cpp
     src/compute.cpp
+    src/simulation.cpp
     src/textures.cpp
     ${SHADER_SPVS}
 )
