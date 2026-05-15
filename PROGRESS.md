@@ -55,10 +55,14 @@
 - Additive blending for glow accumulation
 - **Commit**: (pending)
 
-## Milestone 7 — Procedural Textures ⬜
-- [ ] 64×64 RGBA sun glow texture
-- [ ] 16×16 RGBA particle glow texture
-- [ ] Texture sampler for fragment shaders
+## Milestone 7 — Procedural Textures ✅
+- 64×64 RGBA radial gradient for sun glow
+- 16×16 RGBA radial gradient for particle glow
+- Texture upload via staging buffer with layout transitions
+- Linear sampler created
+- Two descriptor sets: one per texture (sun/particle)
+- Fragment shaders sample textures via combined image sampler
+- **Commit**: (pending)
 
 ## Milestone 8 — Audio ⬜
 - [ ] miniaudio integration

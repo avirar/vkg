@@ -2,6 +2,7 @@
 #include "render.h"
 #include "compute.h"
 #include "simulation.h"
+#include "textures.h"
 #include <iostream>
 #include <chrono>
 #include <cmath>
@@ -39,6 +40,10 @@ int main() {
 
         Renderer renderer(engine);
         renderer.setCompute(&compute);
+
+        Textures textures(engine);
+        textures.createProceduralTextures();
+        renderer.setTextures(&textures);
 
         auto lastTime = std::chrono::high_resolution_clock::now();
 

@@ -6,6 +6,10 @@
 Renderer::Renderer(Engine& engine) : m_engine(engine) {
     createCommandBuffers();
     createSunVertexBuffer();
+}
+
+void Renderer::createPipelines() {
+    if (!m_textures) return;
     createGraphicsPipeline();
     createSunPipeline();
 }
@@ -158,8 +162,12 @@ void Renderer::createSunPipeline() {
     pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pcr.size = sizeof(SunPushConstants);
 
+    VkDescriptorSetLayout setLayouts[1] = { m_textures->descriptorSetLayout() };
+
     VkPipelineLayoutCreateInfo plci{};
     plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    plci.setLayoutCount = 1;
+    plci.pSetLayouts = setLayouts;
     plci.pushConstantRangeCount = 1;
     plci.pPushConstantRanges = &pcr;
 
@@ -278,8 +286,13 @@ void Renderer::createGraphicsPipeline() {
     dsc.dynamicStateCount = (uint32_t)dynamicStates.size();
     dsc.pDynamicStates = dynamicStates.data();
 
+    // Pipeline layout with texture descriptor set
+    VkDescriptorSetLayout setLayouts[1] = { m_textures->descriptorSetLayout() };
+
     VkPipelineLayoutCreateInfo plci{};
     plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    plci.setLayoutCount = 1;
+    plci.pSetLayouts = setLayouts;
 
     if (vkCreatePipelineLayout(m_engine.device(), &plci, nullptr, &m_graphicsPipelineLayout) != VK_SUCCESS)
         throw std::runtime_error("Failed to create graphics pipeline layout");
@@ -358,6 +371,12 @@ void Renderer::drawFrame(float sinRot, float cosRot,
 
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_sunPipeline);
 
+        if (m_textures) {
+            VkDescriptorSet sunSet = m_textures->sunDescriptorSet();
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    m_sunPipelineLayout, 0, 1, &sunSet, 0, nullptr);
+        }
+
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &m_sunVertexBuffer, &offset);
 
@@ -418,6 +437,12 @@ void Renderer::drawFrame(float sinRot, float cosRot,
     // --- Draw particles ---
     if (m_compute && m_compute->particleCount() > 0) {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
+
+        if (m_textures) {
+            VkDescriptorSet partSet = m_textures->particleDescriptorSet();
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    m_graphicsPipelineLayout, 0, 1, &partSet, 0, nullptr);
+        }
 
         VkDeviceSize offset = 0;
         VkBuffer particleBuf = m_compute->outputBuffer();
