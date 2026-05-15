@@ -1,0 +1,75 @@
+#version 450
+
+layout(local_size_x = 256) in;
+
+struct Particle {
+    float pos_x, pos_y, pos_z;
+    float vel_x, vel_y, vel_z;
+    float screen_x, screen_y;
+    float brightness;
+    float _pad;
+};
+
+layout(std430, binding = 0) buffer ParticleBuffer {
+    Particle particles[];
+};
+
+layout(push_constant) uniform PushConstants {
+    float dt;
+    float gravity;
+    float damping;
+    uint particleCount;
+    float singularity_x;
+    float singularity_y;
+    float singularity_z;
+    float sin_a;
+    float cos_a;
+    float cameraDist;
+    float cameraOffset;
+    float aspectRatioX;
+    float aspectRatioY;
+} pc;
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= pc.particleCount) return;
+
+    Particle p = particles[idx];
+
+    // Gravity toward singularity
+    vec3 d = vec3(pc.singularity_x, pc.singularity_y, pc.singularity_z) - vec3(p.pos_x, p.pos_y, p.pos_z);
+    float distSq = dot(d, d) + 1e-10;
+    float force = pc.gravity / distSq * pc.dt;
+
+    // Damped velocity update
+    p.vel_x = (d.x * force - p.vel_x) * pc.damping + d.x * force;
+    p.vel_y = (d.y * force - p.vel_y) * pc.damping + d.y * force;
+    p.vel_z = (d.z * force - p.vel_z) * pc.damping + d.z * force;
+
+    // Update position
+    p.pos_x += p.vel_x;
+    p.pos_y += p.vel_y;
+    p.pos_z += p.vel_z;
+
+    // Clamp to [-1, 1] cube
+    p.pos_x = clamp(p.pos_x, -1.0, 1.0);
+    p.pos_y = clamp(p.pos_y, -1.0, 1.0);
+    p.pos_z = clamp(p.pos_z, -1.0, 1.0);
+
+    // Project to screen
+    float rot_z = pc.cos_a * p.pos_z + pc.sin_a * p.pos_x;
+    float persp = pc.cameraDist / (rot_z + pc.cameraOffset);
+
+    p.screen_x = (pc.cos_a * p.pos_x - pc.sin_a * p.pos_z) * persp * pc.aspectRatioX;
+    p.screen_y = p.pos_y * persp * pc.aspectRatioY;
+
+    // Brightness (matches original cubic falloff)
+    float brightness = 1.0 - (rot_z + pc.cameraOffset) * 0.6666;
+    if (brightness > 0.0 && brightness < 1.0) {
+        brightness = brightness * 1.5 * brightness * brightness;
+        brightness = clamp(brightness, 0.0, 1.0);
+    }
+    p.brightness = brightness;
+
+    particles[idx] = p;
+}
