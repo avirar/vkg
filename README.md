@@ -81,14 +81,19 @@ Xvfb :99 -screen 0 800x600x24 &
 DISPLAY=:99 ./build/vkg
 ```
 
-## Controls (planned)
+## Controls
 
 | Key | Action |
 |---|---|
 | ESC | Exit |
-| Space | Pause/Resume |
-| R | Reset simulation |
-| G/g | Gravity +/- |
-| D/d | Damping +/- |
-| A | Toggle additive blending |
-| F | Fullscreen |
+| Space | Pause / Resume |
+| R | Force reinitialization |
+| F | Toggle fullscreen |
+
+## Notes
+
+- All 9 milestones implemented — compute physics, point-sprite rendering, textured sun, audio
+- Uses Vulkan 1.2 with compute shader for GPU particle physics
+- Scales to 32K particles (configurable via `MAX_PARTICLES`)
+- Particle count dynamically adjusts based on framerate
+- Additive blending matches the original's accumulation behavior

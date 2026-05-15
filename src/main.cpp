@@ -7,13 +7,21 @@
 #include <iostream>
 #include <chrono>
 #include <cmath>
+#include <unordered_map>
 
 static Engine* g_engine = nullptr;
 
 static void framebufferResizeCallback(GLFWwindow* window, int w, int h) {
-    if (g_engine) {
-        g_engine->setFramebufferResized();
-    }
+    if (g_engine) g_engine->setFramebufferResized();
+}
+
+static void keyCallback(GLFWwindow*, int, int, int, int) {}
+
+static bool keyPressed(GLFWwindow* window, int key, std::unordered_map<int, bool>& prev) {
+    bool pressed = glfwGetKey(window, key) == GLFW_PRESS;
+    bool result = pressed && !prev[key];
+    prev[key] = pressed;
+    return result;
 }
 
 int main() {
@@ -35,7 +43,6 @@ int main() {
         g_engine = &engine;
 
         Simulation sim(1000);
-
         Compute compute(engine);
         compute.init(sim.state().particleCount);
 
@@ -50,12 +57,33 @@ int main() {
         audio.load("glg.wav");
 
         auto lastTime = std::chrono::high_resolution_clock::now();
+        bool paused = false;
+        bool fullscreen = false;
+        std::unordered_map<int, bool> prevKeys;
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
 
             if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
+
+            // Key controls (single-press)
+            if (keyPressed(window, GLFW_KEY_SPACE, prevKeys)) {
+                paused = !paused;
+            }
+            if (keyPressed(window, GLFW_KEY_R, prevKeys)) {
+                sim.forceReinit();
+            }
+            if (keyPressed(window, GLFW_KEY_F, prevKeys)) {
+                fullscreen = !fullscreen;
+                GLFWmonitor* monitor = fullscreen ? glfwGetPrimaryMonitor() : nullptr;
+                const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+                if (fullscreen) {
+                    glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+                } else {
+                    glfwSetWindowMonitor(window, nullptr, 100, 100, 800, 600, 0);
+                }
+            }
 
             // Handle resize
             {
@@ -70,8 +98,8 @@ int main() {
             lastTime = now;
             if (dt > 0.1f) dt = 0.1f;
 
-            // Update simulation
-            if (dt > 0.0f) {
+            // Update simulation (skip if paused)
+            if (dt > 0.0f && !paused) {
                 sim.update(dt);
             }
 
@@ -83,7 +111,7 @@ int main() {
                 audio.play();
                 sim.clearReinitFlag();
             }
-            compute.update(dt,
+            compute.update(paused ? 0.0f : dt,
                 s.singularityX, s.singularityY, s.singularityZ,
                 std::sin(angleRad), std::cos(angleRad),
                 s.aspectRatioX, s.aspectRatioY,
