@@ -78,7 +78,9 @@ int main() {
             if (doReinit) sim.clearReinitFlag();
 
             if (!engine.beginFrame()) continue;
-            renderer.drawFrame();
+            renderer.drawFrame(std::sin(angleRad), std::cos(angleRad),
+                              s.singularityX, s.singularityY, s.singularityZ,
+                              s.aspectRatioX, s.aspectRatioY);
             engine.endFrame();
         }
 

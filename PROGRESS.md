@@ -47,10 +47,13 @@
 - Single-frame reinit, then normal physics resumes
 - **Commit**: (pending)
 
-## Milestone 6 — Singularity Sun Rendering ⬜
-- [ ] Sun vertex/fragment shaders (7 concentric layers)
-- [ ] Sun pipeline + draw call
-- [ ] Sun color: RGB(0.07, 0.30, 1.0) (blue glow)
+## Milestone 6 — Singularity Sun Rendering ✅
+- Sun vertex shader: triangle strip quad + push constants (center, scale, alpha)
+- Sun fragment shader: soft radial glow with blue color RGB(0.07, 0.30, 1.0)
+- 7 concentric layers matching original (0.20, 0.08, 0.04, 0.02, 0.02, 0.01, 0.01)
+- Sun position projected from 3D singularity via rotation + perspective
+- Additive blending for glow accumulation
+- **Commit**: (pending)
 
 ## Milestone 7 — Procedural Textures ⬜
 - [ ] 64×64 RGBA sun glow texture

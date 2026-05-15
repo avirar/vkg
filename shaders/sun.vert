@@ -1,18 +1,16 @@
 #version 450
 
-layout(location = 0) out vec2 fragTexCoord;
+layout(location = 0) in vec2 inPosition;
 
-vec2 positions[4] = vec2[](
-    vec2(-1.0, -1.0), vec2(1.0, -1.0),
-    vec2(1.0,  1.0), vec2(-1.0,  1.0)
-);
+layout(push_constant) uniform SunPush {
+    vec2 center;
+    float scale;
+    float alpha;
+} pc;
 
-vec2 texcoords[4] = vec2[](
-    vec2(0.0, 0.0), vec2(1.0, 0.0),
-    vec2(1.0, 1.0), vec2(0.0, 1.0)
-);
+layout(location = 0) out float fragAlpha;
 
 void main() {
-    gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
-    fragTexCoord = texcoords[gl_VertexIndex];
+    gl_Position = vec4(pc.center + inPosition * pc.scale, 0.0, 1.0);
+    fragAlpha = pc.alpha;
 }
