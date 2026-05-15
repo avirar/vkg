@@ -64,9 +64,13 @@
 - Fragment shaders sample textures via combined image sampler
 - **Commit**: (pending)
 
-## Milestone 8 — Audio ⬜
-- [ ] miniaudio integration
-- [ ] Play glg.wav (MPEG layer 3) on reinit
+## Milestone 8 — Audio ✅
+- miniaudio single-header library integration
+- Audio class: engine init, WAV/MP3 loading, play with seek-to-start
+- Plays glg.wav on each reinit (matches original `glg.c:2696-2697`)
+- WAV file copied to build directory at build time
+- Graceful fallback if audio file not found
+- **Commit**: (pending)
 
 ## Milestone 9 — Polish ⬜
 - [ ] Key controls (ESC, Space, R, G/g, D/d, +/-, A, F)

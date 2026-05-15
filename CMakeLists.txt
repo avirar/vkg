@@ -51,6 +51,7 @@ add_executable(vkg
     src/compute.cpp
     src/simulation.cpp
     src/textures.cpp
+    src/audio.cpp
     ${SHADER_SPVS}
 )
 
@@ -71,9 +72,12 @@ target_link_libraries(vkg PRIVATE
     glfw
 )
 
-# Copy shader SPVs near the executable so they can be found at runtime
+# Copy shader SPVs and assets near the executable so they can be found at runtime
 add_custom_command(TARGET vkg POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${SHADER_OUT_DIR}
-    $<TARGET_FILE_DIR:vkg>/shaders
+    ${CMAKE_BINARY_DIR}/shaders
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${CMAKE_SOURCE_DIR}/../glg-test/glg.wav
+    ${CMAKE_BINARY_DIR}/glg.wav
 )

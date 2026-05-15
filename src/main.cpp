@@ -3,6 +3,7 @@
 #include "compute.h"
 #include "simulation.h"
 #include "textures.h"
+#include "audio.h"
 #include <iostream>
 #include <chrono>
 #include <cmath>
@@ -45,6 +46,9 @@ int main() {
         textures.createProceduralTextures();
         renderer.setTextures(&textures);
 
+        Audio audio;
+        audio.load("glg.wav");
+
         auto lastTime = std::chrono::high_resolution_clock::now();
 
         while (!glfwWindowShouldClose(window)) {
@@ -75,12 +79,15 @@ int main() {
             const auto& s = sim.state();
             float angleRad = s.rotationAngle * 3.14159265f / 180.0f;
             bool doReinit = sim.justReinitialized();
+            if (doReinit) {
+                audio.play();
+                sim.clearReinitFlag();
+            }
             compute.update(dt,
                 s.singularityX, s.singularityY, s.singularityZ,
                 std::sin(angleRad), std::cos(angleRad),
                 s.aspectRatioX, s.aspectRatioY,
                 doReinit);
-            if (doReinit) sim.clearReinitFlag();
 
             if (!engine.beginFrame()) continue;
             renderer.drawFrame(std::sin(angleRad), std::cos(angleRad),
