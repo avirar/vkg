@@ -1,6 +1,9 @@
 #include "engine.h"
 #include "render.h"
+#include "compute.h"
 #include <iostream>
+#include <chrono>
+#include <cmath>
 
 static Engine* g_engine = nullptr;
 
@@ -26,13 +29,27 @@ int main() {
         Engine engine(window);
         g_engine = &engine;
 
+        Compute compute(engine);
+        compute.init(1000); // Start with 1000 particles
+
         Renderer renderer(engine);
+        renderer.setCompute(&compute);
+
+        auto lastTime = std::chrono::high_resolution_clock::now();
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
 
             if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
+
+            auto now = std::chrono::high_resolution_clock::now();
+            float dt = std::chrono::duration_cast<std::chrono::duration<float>>(now - lastTime).count();
+            lastTime = now;
+            if (dt > 0.1f) dt = 0.1f; // Cap
+
+            float angle = 0.0f; // placeholder rotation
+            compute.update(dt, 0, 0, 0, std::sin(angle), std::cos(angle), 1.0f, 1.0f);
 
             if (!engine.beginFrame()) continue;
 
