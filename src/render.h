@@ -4,6 +4,7 @@
 #include "compute.h"
 #include "textures.h"
 #include "config.h"
+#include "simulation.h"
 
 struct SunPushConstants {
     float centerX;
@@ -19,7 +20,6 @@ struct ParticlePushConstants {
     float aspectY;
     float pointSizeMult;
     uint32_t mode;  // 0=off, 1=color, 2=brightness
-    float hyperIntensity;
     float loR, loG, loB;
     float hiR, hiG, hiB;
 };
@@ -37,11 +37,8 @@ public:
     void setDebug(bool d) { m_debugMode = d; }
     void setPointScale(float s) { m_pointScale = s; }
     void setParticleColors(const Config& cfg);
-    void drawFrame(float sinOrbit, float cosOrbit,
-                   float sinElev, float cosElev,
-                   float singX, float singY, float singZ,
-                   float aspectX, float aspectY,
-                   float sunPulse);
+    void setOsd(bool osd) { m_osd = osd; }
+    void drawFrame(const SimState& state, float aspectX, float aspectY);
     void recordSunGeometryInit(VkCommandBuffer cmd);
     void cleanupSunInitStaging();
 
@@ -52,6 +49,8 @@ private:
     void createSunPipeline();
     void createSunVertexBuffer();
     void createSunIndexBuffer();
+    void createOsdPipeline();
+    void drawOsd(VkCommandBuffer cmd, uint32_t particleCount, float fps);
 
     Engine& m_engine;
     Compute* m_compute = nullptr;
@@ -68,6 +67,16 @@ private:
     VkDeviceMemory m_sunVertexMemory = VK_NULL_HANDLE;
     VkBuffer m_sunIndexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_sunIndexMemory = VK_NULL_HANDLE;
+
+    // OSD pipeline
+    VkPipelineLayout m_osdPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline m_osdPipeline = VK_NULL_HANDLE;
+    VkBuffer m_osdVertexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_osdVertexMemory = VK_NULL_HANDLE;
+    VkBuffer m_osdIndexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_osdIndexMemory = VK_NULL_HANDLE;
+    bool m_osd = false;
+    float m_osdLastFps = 0.0f;
 
     std::vector<VkCommandBuffer> m_commandBuffers;
 

@@ -18,15 +18,20 @@ layout(std430, binding = 1) buffer ParticleBufferOut {
     Particle particlesOut[];
 };
 
+layout(std430, binding = 2) readonly buffer SingBuffer {
+    vec4 singPositions[8];
+} singBuf;
+
 layout(push_constant) uniform PushConstants {
     float dt;
     float gravity;
     float damping;
     float forceMult;
     uint particleCount;
-    float singularity_x;
-    float singularity_y;
-    float singularity_z;
+    uint singCount;
+    float comX;
+    float comY;
+    float comZ;
     float sin_a;
     float cos_a;
     float sin_elev;
@@ -40,7 +45,8 @@ layout(push_constant) uniform PushConstants {
     float dbgScrX;
     float dbgScrY;
     float dbgBright;
-    float hyperIntensity;
+    float velocityIntensity;
+    float distanceIntensity;
 } pc;
 
 uint pcg_hash(uint v) {
@@ -67,13 +73,20 @@ void main() {
         return;
     }
 
-    vec3 d = vec3(pc.singularity_x, pc.singularity_y, pc.singularity_z) - vec3(p.pos_x, p.pos_y, p.pos_z);
-    float distSq = dot(d, d) + 1e-10;
-    float force = pc.forceMult / distSq;
+    // Sum gravity from all singularities
+    vec3 totalForce = vec3(0.0);
+    float nearestDistSq = 1e30;
 
-    p.vel_x = d.x * force - p.vel_x * pc.damping;
-    p.vel_y = d.y * force - p.vel_y * pc.damping;
-    p.vel_z = d.z * force - p.vel_z * pc.damping;
+    for (uint s = 0u; s < pc.singCount; s++) {
+        vec3 ds = singBuf.singPositions[s].xyz - vec3(p.pos_x, p.pos_y, p.pos_z);
+        float distSq = dot(ds, ds) + 1e-10;
+        totalForce += ds * pc.forceMult / distSq;
+        if (distSq < nearestDistSq) nearestDistSq = distSq;
+    }
+
+    p.vel_x = totalForce.x - p.vel_x * pc.damping;
+    p.vel_y = totalForce.y - p.vel_y * pc.damping;
+    p.vel_z = totalForce.z - p.vel_z * pc.damping;
 
     p.pos_x += p.vel_x;
     p.pos_y += p.vel_y;
@@ -83,6 +96,7 @@ void main() {
     p.pos_y = clamp(p.pos_y, -1.0, 1.0);
     p.pos_z = clamp(p.pos_z, -1.0, 1.0);
 
+    // Project using center of mass
     float ryX = pc.cos_a * p.pos_x - pc.sin_a * p.pos_z;
     float ryZ = pc.sin_a * p.pos_x + pc.cos_a * p.pos_z;
     float depth = pc.cos_elev * ryZ + pc.sin_elev * p.pos_y;
@@ -100,8 +114,11 @@ void main() {
     }
     p.brightness = brightness;
 
+    // Dual hypercolor: velocity + distance to nearest singularity
     float velMagSq = p.vel_x*p.vel_x + p.vel_y*p.vel_y + p.vel_z*p.vel_z;
-    p.hue = clamp(velMagSq * pc.hyperIntensity * 100.0, 0.0, 1.0);
+    float velF = clamp(velMagSq * 100.0, 0.0, 1.0);
+    float distF = clamp(1.0 / (nearestDistSq + 0.001), 0.0, 1.0);
+    p.hue = clamp(velF * pc.velocityIntensity + distF * pc.distanceIntensity, 0.0, 1.0);
 
     particlesOut[idx] = p;
 }

@@ -17,6 +17,7 @@ void Renderer::createPipelines() {
     if (!m_textures) return;
     createGraphicsPipeline();
     createSunPipeline();
+    createOsdPipeline();
 }
 
 Renderer::~Renderer() {
@@ -29,6 +30,12 @@ Renderer::~Renderer() {
     vkFreeMemory(m_engine.device(), m_sunVertexMemory, nullptr);
     vkDestroyBuffer(m_engine.device(), m_sunIndexBuffer, nullptr);
     vkFreeMemory(m_engine.device(), m_sunIndexMemory, nullptr);
+    if (m_osdPipeline) vkDestroyPipeline(m_engine.device(), m_osdPipeline, nullptr);
+    if (m_osdPipelineLayout) vkDestroyPipelineLayout(m_engine.device(), m_osdPipelineLayout, nullptr);
+    if (m_osdVertexBuffer) vkDestroyBuffer(m_engine.device(), m_osdVertexBuffer, nullptr);
+    if (m_osdVertexMemory) vkFreeMemory(m_engine.device(), m_osdVertexMemory, nullptr);
+    if (m_osdIndexBuffer) vkDestroyBuffer(m_engine.device(), m_osdIndexBuffer, nullptr);
+    if (m_osdIndexMemory) vkFreeMemory(m_engine.device(), m_osdIndexMemory, nullptr);
     if (m_ssBuffer) vkDestroyBuffer(m_engine.device(), m_ssBuffer, nullptr);
     if (m_ssMemory) vkFreeMemory(m_engine.device(), m_ssMemory, nullptr);
     vkFreeCommandBuffers(m_engine.device(), m_engine.commandPool(),
@@ -170,7 +177,6 @@ void Renderer::createSunPipeline() {
     ds.depthTestEnable = VK_FALSE;
     ds.depthWriteEnable = VK_FALSE;
 
-    // Additive blending for sun layers like original
     VkPipelineColorBlendAttachmentState cba{};
     cba.blendEnable = VK_TRUE;
     cba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -195,7 +201,6 @@ void Renderer::createSunPipeline() {
     dsc.dynamicStateCount = (uint32_t)dynamicStates.size();
     dsc.pDynamicStates = dynamicStates.data();
 
-    // Push constants: center + aspectX + sunPulse + 7 layers (72 bytes)
     VkPushConstantRange pcr{};
     pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pcr.size = sizeof(SunPushConstants);
@@ -329,7 +334,6 @@ void Renderer::createGraphicsPipeline() {
     dsc.dynamicStateCount = (uint32_t)dynamicStates.size();
     dsc.pDynamicStates = dynamicStates.data();
 
-    // Pipeline layout with texture descriptor set
     VkDescriptorSetLayout setLayouts[1] = { m_textures->descriptorSetLayout() };
 
     VkPushConstantRange pcr{};
@@ -370,11 +374,12 @@ void Renderer::createGraphicsPipeline() {
     vkDestroyShaderModule(m_engine.device(), fragMod, nullptr);
 }
 
-void Renderer::drawFrame(float sinOrbit, float cosOrbit,
-                          float sinElev, float cosElev,
-                          float singX, float singY, float singZ,
-                          float aspectX, float aspectY,
-                          float sunPulse) {
+void Renderer::createOsdPipeline() {
+    // OSD pipeline uses stb_easy_font vertex format (16-byte interleaved pos+color)
+    // Not created here -- done lazily on first drawOsd call
+}
+
+void Renderer::drawFrame(const SimState& state, float aspectX, float aspectY) {
     uint32_t frameIdx = m_engine.currentFrame() % (uint32_t)m_commandBuffers.size();
     VkCommandBuffer cmd = m_commandBuffers[frameIdx];
 
@@ -415,18 +420,17 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
     scissor.extent = m_engine.extent();
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    // --- Draw sun (7 concentric layers) ---
+    // --- Draw suns (one per singularity) ---
     {
-        // Project singularity to screen with camera orbit + elevation
         float camDist = 1.5f;
         float camOff = 0.6f;
-        float ryX = cosOrbit * singX - sinOrbit * singZ;
-        float ryZ = sinOrbit * singX + cosOrbit * singZ;
-        float depth = cosElev * ryZ + sinElev * singY;
-        float elevY = cosElev * singY - sinElev * ryZ;
-        float persp = camDist / (depth + camOff);
-        float sunScrX = ryX * persp * aspectX;
-        float sunScrY = elevY * persp * aspectY;
+        float orbitRad = state.orbitAngle * 3.14159265f / 180.0f;
+        float cosOrbit = std::cos(orbitRad);
+        float sinOrbit = std::sin(orbitRad);
+        float elevAngle = std::sin(state.wobblePhase * 0.7f) * 5.0f * 3.14159265f / 180.0f;
+        elevAngle += std::sin(state.wobblePhase * 1.3f + 1.0f) * 2.0f * 3.14159265f / 180.0f;
+        float cosElev = std::cos(elevAngle);
+        float sinElev = std::sin(elevAngle);
 
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_sunPipeline);
 
@@ -440,22 +444,32 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
         vkCmdBindVertexBuffers(cmd, 0, 1, &m_sunVertexBuffer, &offset);
         vkCmdBindIndexBuffer(cmd, m_sunIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-        // 7 concentric layers, instanced via gl_InstanceIndex
-        SunPushConstants spc{};
-        spc.centerX = sunScrX;
-        spc.centerY = sunScrY;
-        spc.aspectX = aspectX;
-        spc.sunPulse = sunPulse;
-        spc.layerScales[0] = 0.20f; spc.layerAlphas[0] = 0.25f;
-        spc.layerScales[1] = 0.08f; spc.layerAlphas[1] = 0.35f;
-        spc.layerScales[2] = 0.04f; spc.layerAlphas[2] = 0.45f;
-        spc.layerScales[3] = 0.02f; spc.layerAlphas[3] = 0.55f;
-        spc.layerScales[4] = 0.02f; spc.layerAlphas[4] = 0.65f;
-        spc.layerScales[5] = 0.01f; spc.layerAlphas[5] = 0.80f;
-        spc.layerScales[6] = 0.01f; spc.layerAlphas[6] = 1.00f;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDrawIndexed(cmd, 6, 7, 0, 0, 0);
+        for (uint32_t i = 0; i < state.singularityCount; i++) {
+            const auto& s = state.singularities[i];
+            float ryX = cosOrbit * s.x - sinOrbit * s.z;
+            float ryZ = sinOrbit * s.x + cosOrbit * s.z;
+            float depth = cosElev * ryZ + sinElev * s.y;
+            float elevY = cosElev * s.y - sinElev * ryZ;
+            float persp = camDist / (depth + camOff);
+            float sunScrX = ryX * persp * state.aspectRatioX;
+            float sunScrY = elevY * persp * state.aspectRatioY;
+
+            SunPushConstants spc{};
+            spc.centerX = sunScrX;
+            spc.centerY = sunScrY;
+            spc.aspectX = state.aspectRatioX;
+            spc.sunPulse = state.sunPulse * (1.0f + 0.3f * std::sin(state.wobblePhase + s.pulsePhase));
+            spc.layerScales[0] = 0.20f; spc.layerAlphas[0] = 0.25f;
+            spc.layerScales[1] = 0.08f; spc.layerAlphas[1] = 0.35f;
+            spc.layerScales[2] = 0.04f; spc.layerAlphas[2] = 0.45f;
+            spc.layerScales[3] = 0.02f; spc.layerAlphas[3] = 0.55f;
+            spc.layerScales[4] = 0.02f; spc.layerAlphas[4] = 0.65f;
+            spc.layerScales[5] = 0.01f; spc.layerAlphas[5] = 0.80f;
+            spc.layerScales[6] = 0.01f; spc.layerAlphas[6] = 1.00f;
+            vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                               0, sizeof(spc), &spc);
+            vkCmdDrawIndexed(cmd, 6, 7, 0, 0, 0);
+        }
     }
 
     // --- Draw particles ---
@@ -464,7 +478,7 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
 
         ParticlePushConstants ppc = m_ppc;
         ppc.viewportHeight = (float)m_engine.extent().height;
-        ppc.aspectY = aspectY;
+        ppc.aspectY = state.aspectRatioY;
         ppc.pointSizeMult = m_debugMode ? 3.0f : m_pointScale;
         vkCmdPushConstants(cmd, m_graphicsPipelineLayout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -560,8 +574,7 @@ void Renderer::setParticleColors(const Config& cfg) {
     else if (cfg.hypercolorMode == "color")
         m_ppc.mode = 1u;
     else
-        m_ppc.mode = 0u;  // "off" or unknown
-    m_ppc.hyperIntensity = cfg.hyperIntensity;
+        m_ppc.mode = 0u;
     m_ppc.loR = cfg.hyperLoR; m_ppc.loG = cfg.hyperLoG; m_ppc.loB = cfg.hyperLoB;
     m_ppc.hiR = cfg.hyperHiR; m_ppc.hiG = cfg.hyperHiG; m_ppc.hiB = cfg.hyperHiB;
 }
@@ -578,7 +591,6 @@ void Renderer::debugDump(VkFence fence) {
     void* data;
     vkMapMemory(m_engine.device(), m_ssMemory, 0, size, 0, &data);
 
-    // Pre-convert float16 to uint8 so existing pixel code works unchanged
     std::vector<uint8_t> converted;
     uint8_t* pixels;
     if (isFloat16) {
@@ -602,12 +614,10 @@ void Renderer::debugDump(VkFence fence) {
         uint16_t* p16 = (uint16_t*)data;
         for (uint32_t i = 0; i < extent.width * extent.height; i++) {
             uint32_t base = i * 4;
-            // R16G16B16A16_SFLOAT is RGBA order in memory
-            float fr = h2f(p16[base + 0]);  // R
-            float fg = h2f(p16[base + 1]);  // G
-            float fb = h2f(p16[base + 2]);  // B
+            float fr = h2f(p16[base + 0]);
+            float fg = h2f(p16[base + 1]);
+            float fb = h2f(p16[base + 2]);
             auto to8 = [](float f) { return (uint8_t)std::clamp(f * 255.0f, 0.0f, 255.0f); };
-            // Store in B G R A order matching the non-HDR layout
             converted[i * 4 + 2] = to8(fr);
             converted[i * 4 + 1] = to8(fg);
             converted[i * 4 + 0] = to8(fb);
@@ -617,8 +627,7 @@ void Renderer::debugDump(VkFence fence) {
         pixels = (uint8_t*)data;
     }
 
-    // Summary: count pixels per brightness level
-    int counts[6] = {0,0,0,0,0,0};  // 0, 1-25, 26-50, 51-100, 101-180, 181-255
+    int counts[6] = {0,0,0,0,0,0};
     int maxVal = 0, maxX = 0, maxY = 0;
     for (uint32_t y = 0; y < extent.height; y++) {
         for (uint32_t x = 0; x < extent.width; x++) {
@@ -646,7 +655,6 @@ void Renderer::debugDump(VkFence fence) {
            pixels[(maxY * extent.width + maxX) * 4 + 1],
            pixels[(maxY * extent.width + maxX) * 4 + 0]);
 
-    // ASCII grid (full screen)
     printf("=== ASCII grid (legend: .=1-25 :=26-50 +=51-100 *=101-180 #=181+) ===\n");
     for (uint32_t y = 0; y < extent.height; y++) {
         for (uint32_t x = 0; x < extent.width; x++) {
@@ -669,20 +677,13 @@ void Renderer::debugDump(VkFence fence) {
         putchar('\n');
     }
 
-    // Numeric dump of center 20x20 region
     printf("\n=== Center 20x20 numeric (max(R,G,B) per pixel) ===\n");
     int cy = extent.height / 2;
     int cx = extent.width / 2;
     for (int y = cy - 10; y < cy + 10; y++) {
-        if (y < 0 || y >= (int)extent.height) {
-            printf("---\n");
-            continue;
-        }
+        if (y < 0 || y >= (int)extent.height) { printf("---\n"); continue; }
         for (int x = cx - 10; x < cx + 10; x++) {
-            if (x < 0 || x >= (int)extent.width) {
-                printf("---");
-                continue;
-            }
+            if (x < 0 || x >= (int)extent.width) { printf("---"); continue; }
             uint32_t i = y * extent.width + x;
             uint8_t r = pixels[i * 4 + 2];
             uint8_t g = pixels[i * 4 + 1];
@@ -695,7 +696,6 @@ void Renderer::debugDump(VkFence fence) {
         printf("\n");
     }
 
-    // All non-zero pixels outside center region (to find debug particle)
     printf("\n=== Non-zero pixels outside center 20x20 ===\n");
     int found = 0;
     for (uint32_t y = 0; y < extent.height && found < 50; y++) {
@@ -764,10 +764,9 @@ void Renderer::saveScreenshot(VkFence fence) {
         for (uint32_t i = 0; i < extent.width * extent.height; i++) {
             uint32_t base = i * 4;
             auto to8 = [](float f) { return (uint8_t)std::clamp(f * 255.0f, 0.0f, 255.0f); };
-            // R16G16B16A16_SFLOAT = RGBA order
-            rgb[i * 3 + 0] = to8(h2f(p16[base + 0])); // R
-            rgb[i * 3 + 1] = to8(h2f(p16[base + 1])); // G
-            rgb[i * 3 + 2] = to8(h2f(p16[base + 2])); // B
+            rgb[i * 3 + 0] = to8(h2f(p16[base + 0]));
+            rgb[i * 3 + 1] = to8(h2f(p16[base + 1]));
+            rgb[i * 3 + 2] = to8(h2f(p16[base + 2]));
         }
     } else {
         uint8_t* pixels = (uint8_t*)data;

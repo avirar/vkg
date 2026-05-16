@@ -18,6 +18,8 @@ Compute::~Compute() {
         vkDestroyBuffer(m_engine.device(), m_particleBuffers[i], nullptr);
         vkFreeMemory(m_engine.device(), m_particleBufferMemories[i], nullptr);
     }
+    if (m_singBuffer) vkDestroyBuffer(m_engine.device(), m_singBuffer, nullptr);
+    if (m_singMemory) vkFreeMemory(m_engine.device(), m_singMemory, nullptr);
     cleanupInitStaging();
 }
 
@@ -28,11 +30,12 @@ void Compute::init(uint32_t particleCount) {
     createPipelineLayout();
     createPipeline();
     createParticleBuffers();
+    createSingularityBuffer();
     createDescriptorSets();
 }
 
 void Compute::createDescriptorSetLayout() {
-    VkDescriptorSetLayoutBinding bindings[2]{};
+    VkDescriptorSetLayoutBinding bindings[3]{};
 
     bindings[0].binding = 0;
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -44,9 +47,14 @@ void Compute::createDescriptorSetLayout() {
     bindings[1].descriptorCount = 1;
     bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    bindings[2].binding = 2;
+    bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[2].descriptorCount = 1;
+    bindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     VkDescriptorSetLayoutCreateInfo ci{};
     ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    ci.bindingCount = 2;
+    ci.bindingCount = 3;
     ci.pBindings = bindings;
 
     if (vkCreateDescriptorSetLayout(m_engine.device(), &ci, nullptr, &m_descriptorSetLayout) != VK_SUCCESS)
@@ -104,11 +112,19 @@ void Compute::createParticleBuffers() {
     }
 }
 
+void Compute::createSingularityBuffer() {
+    VkDeviceSize size = sizeof(SingData) * 8;
+    m_engine.createBuffer(size,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        m_singBuffer, m_singMemory);
+}
+
 void Compute::createDescriptorSets() {
-    // Pool: 2 sets × 2 bindings = 4 storage buffer descriptors
+    // Pool: 2 sets × 3 bindings = 6 storage buffer descriptors
     VkDescriptorPoolSize poolSize{};
     poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSize.descriptorCount = 4;
+    poolSize.descriptorCount = 6;
 
     VkDescriptorPoolCreateInfo pci{};
     pci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -119,7 +135,6 @@ void Compute::createDescriptorSets() {
     if (vkCreateDescriptorPool(m_engine.device(), &pci, nullptr, &m_descriptorPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create compute descriptor pool");
 
-    // Allocate 2 sets
     std::vector<VkDescriptorSetLayout> layouts = {m_descriptorSetLayout, m_descriptorSetLayout};
     VkDescriptorSetAllocateInfo ai{};
     ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -131,69 +146,68 @@ void Compute::createDescriptorSets() {
     if (vkAllocateDescriptorSets(m_engine.device(), &ai, sets.data()) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate compute descriptor sets");
 
-    m_descriptorSetAB = sets[0]; // binding0=buffer[0], binding1=buffer[1]
-    m_descriptorSetBA = sets[1]; // binding0=buffer[1], binding1=buffer[0]
+    m_descriptorSetAB = sets[0];
+    m_descriptorSetBA = sets[1];
 
     VkDeviceSize bufSize = m_maxParticles * sizeof(Particle);
+    VkDeviceSize singSize = sizeof(SingData) * 8;
 
-    // Write set AB: binding 0 -> buffer[0], binding 1 -> buffer[1]
+    // Write set AB: binding 0 -> buf[0], binding 1 -> buf[1], binding 2 -> singBuffer
     {
-        VkDescriptorBufferInfo bi0{};
-        bi0.buffer = m_particleBuffers[0];
-        bi0.offset = 0;
-        bi0.range = bufSize;
+        VkDescriptorBufferInfo bi0{}, bi1{}, bi2{};
+        bi0.buffer = m_particleBuffers[0]; bi0.offset = 0; bi0.range = bufSize;
+        bi1.buffer = m_particleBuffers[1]; bi1.offset = 0; bi1.range = bufSize;
+        bi2.buffer = m_singBuffer; bi2.offset = 0; bi2.range = singSize;
 
-        VkDescriptorBufferInfo bi1{};
-        bi1.buffer = m_particleBuffers[1];
-        bi1.offset = 0;
-        bi1.range = bufSize;
-
-        VkWriteDescriptorSet writes[2]{};
+        VkWriteDescriptorSet writes[3]{};
         writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[0].dstSet = m_descriptorSetAB;
-        writes[0].dstBinding = 0;
+        writes[0].dstSet = m_descriptorSetAB; writes[0].dstBinding = 0;
         writes[0].descriptorCount = 1;
         writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         writes[0].pBufferInfo = &bi0;
 
         writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[1].dstSet = m_descriptorSetAB;
-        writes[1].dstBinding = 1;
+        writes[1].dstSet = m_descriptorSetAB; writes[1].dstBinding = 1;
         writes[1].descriptorCount = 1;
         writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         writes[1].pBufferInfo = &bi1;
 
-        vkUpdateDescriptorSets(m_engine.device(), 2, writes, 0, nullptr);
+        writes[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[2].dstSet = m_descriptorSetAB; writes[2].dstBinding = 2;
+        writes[2].descriptorCount = 1;
+        writes[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes[2].pBufferInfo = &bi2;
+
+        vkUpdateDescriptorSets(m_engine.device(), 3, writes, 0, nullptr);
     }
 
-    // Write set BA: binding 0 -> buffer[1], binding 1 -> buffer[0]
+    // Write set BA: binding 0 -> buf[1], binding 1 -> buf[0], binding 2 -> singBuffer
     {
-        VkDescriptorBufferInfo bi0{};
-        bi0.buffer = m_particleBuffers[1];
-        bi0.offset = 0;
-        bi0.range = bufSize;
+        VkDescriptorBufferInfo bi0{}, bi1{}, bi2{};
+        bi0.buffer = m_particleBuffers[1]; bi0.offset = 0; bi0.range = bufSize;
+        bi1.buffer = m_particleBuffers[0]; bi1.offset = 0; bi1.range = bufSize;
+        bi2.buffer = m_singBuffer; bi2.offset = 0; bi2.range = singSize;
 
-        VkDescriptorBufferInfo bi1{};
-        bi1.buffer = m_particleBuffers[0];
-        bi1.offset = 0;
-        bi1.range = bufSize;
-
-        VkWriteDescriptorSet writes[2]{};
+        VkWriteDescriptorSet writes[3]{};
         writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[0].dstSet = m_descriptorSetBA;
-        writes[0].dstBinding = 0;
+        writes[0].dstSet = m_descriptorSetBA; writes[0].dstBinding = 0;
         writes[0].descriptorCount = 1;
         writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         writes[0].pBufferInfo = &bi0;
 
         writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[1].dstSet = m_descriptorSetBA;
-        writes[1].dstBinding = 1;
+        writes[1].dstSet = m_descriptorSetBA; writes[1].dstBinding = 1;
         writes[1].descriptorCount = 1;
         writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         writes[1].pBufferInfo = &bi1;
 
-        vkUpdateDescriptorSets(m_engine.device(), 2, writes, 0, nullptr);
+        writes[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[2].dstSet = m_descriptorSetBA; writes[2].dstBinding = 2;
+        writes[2].descriptorCount = 1;
+        writes[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes[2].pBufferInfo = &bi2;
+
+        vkUpdateDescriptorSets(m_engine.device(), 3, writes, 0, nullptr);
     }
 }
 
@@ -233,12 +247,12 @@ void Compute::recordInitialParticles(VkCommandBuffer cmd) {
     vkCmdCopyBuffer(cmd, stagingBuffer, m_particleBuffers[0], 1, &copyRegion);
     vkCmdCopyBuffer(cmd, stagingBuffer, m_particleBuffers[1], 1, &copyRegion);
 
-    // Staging freed after batch submit (caller must wait)
     m_initStagingBuf = stagingBuffer;
     m_initStagingMem = stagingMemory;
 }
 
-void Compute::update(float dt, float sx, float sy, float sz,
+void Compute::update(float dt, uint32_t singCount, const SingData* singData,
+                     float comX, float comY, float comZ,
                      float sinOrbit, float cosOrbit, float sinElev, float cosElev,
                      float arX, float arY) {
     m_push.dt = dt;
@@ -246,9 +260,10 @@ void Compute::update(float dt, float sx, float sy, float sz,
     m_push.damping = 0.982f;
     m_push.forceMult = m_push.gravity * dt * (1.0f + m_push.damping);
     m_push.particleCount = m_particleCount;
-    m_push.singularityX = sx;
-    m_push.singularityY = sy;
-    m_push.singularityZ = sz;
+    m_push.singCount = std::min(singCount, 8u);
+    m_push.comX = comX;
+    m_push.comY = comY;
+    m_push.comZ = comZ;
     m_push.sinOrbit = sinOrbit;
     m_push.cosOrbit = cosOrbit;
     m_push.sinElev = sinElev;
@@ -262,13 +277,16 @@ void Compute::update(float dt, float sx, float sy, float sz,
     m_push.dbgScrX = 0.0f;
     m_push.dbgScrY = 0.0f;
     m_push.dbgBright = 0.0f;
+
+    std::memcpy(m_singData, singData, sizeof(SingData) * std::min(singCount, 8u));
 }
 
 void Compute::dispatch(VkCommandBuffer cmd) {
-    // activeSet=0 uses AB set (binding0=A=read, binding1=B=write) → output is B (index 1)
-    // activeSet=1 uses BA set (binding0=B=read, binding1=A=write) → output is A (index 0)
     VkDescriptorSet set = (m_activeSet == 0) ? m_descriptorSetAB : m_descriptorSetBA;
     m_outputIndex = (m_activeSet == 0) ? 1 : 0;
+
+    // Upload singularity positions inline (snapshotted at record time)
+    vkCmdUpdateBuffer(cmd, m_singBuffer, 0, sizeof(m_singData), m_singData);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipeline);
 
@@ -281,7 +299,6 @@ void Compute::dispatch(VkCommandBuffer cmd) {
     uint32_t workgroups = (m_particleCount + 255) / 256;
     vkCmdDispatch(cmd, workgroups, 1, 1);
 
-    // Buffer-specific barrier: compute writes → vertex attribute reads
     VkBufferMemoryBarrier bufBarrier{};
     bufBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
     bufBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
@@ -300,7 +317,6 @@ void Compute::dispatch(VkCommandBuffer cmd) {
         1, &bufBarrier,
         0, nullptr);
 
-    // Toggle active set for next frame
     m_activeSet = 1 - m_activeSet;
 }
 

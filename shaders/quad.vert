@@ -9,7 +9,6 @@ layout(push_constant) uniform ParticlePush {
     float aspectY;
     float pointSizeMult;
     uint mode;
-    float hyperIntensity;
     float loR, loG, loB;
     float hiR, hiG, hiB;
 } pc;

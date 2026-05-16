@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
             std::cout << "[HDR] Native HDR enabled (scRGB or HDR10 PQ)" << std::endl;
         }
 
-        Simulation sim(debugMode ? 1 : (uint32_t)cfg.particles);
+        Simulation sim(debugMode ? 1 : (uint32_t)cfg.particles, (uint32_t)cfg.singularityCount);
         if (cfg.targetFps > 0) sim.setTargetFps(cfg.targetFps);
         Compute compute(engine);
         compute.init(sim.state().particleCount);
@@ -111,7 +111,9 @@ int main(int argc, char** argv) {
         renderer.setDebug(debugMode);
         renderer.setPointScale(cfg.pointScale);
         renderer.setParticleColors(cfg);
-        compute.setHyperIntensity(cfg.hyperIntensity);
+        compute.setVelocityIntensity(cfg.hyperVelocityIntensity);
+        compute.setDistanceIntensity(cfg.hyperDistanceIntensity);
+        renderer.setOsd(false); // OSD handled later
 
         Textures textures(engine);
         textures.createProceduralTextures();
@@ -218,11 +220,19 @@ int main(int argc, char** argv) {
 
             // Feed simulation state to compute shader
             const auto& s = sim.state();
+            SingData singData[8]{};
+            for (uint32_t i = 0; i < s.singularityCount && i < 8; i++) {
+                singData[i].x = s.singularities[i].x;
+                singData[i].y = s.singularities[i].y;
+                singData[i].z = s.singularities[i].z;
+                singData[i].pad = 0.0f;
+            }
             float orbitRad = s.orbitAngle * 3.14159265f / 180.0f;
             float elevAngle = std::sin(s.wobblePhase * 0.7f) * 5.0f * 3.14159265f / 180.0f;
             elevAngle += std::sin(s.wobblePhase * 1.3f + 1.0f) * 2.0f * 3.14159265f / 180.0f;
             compute.update(paused ? 0.0f : dt,
-                s.singularityX, s.singularityY, s.singularityZ,
+                s.singularityCount, singData,
+                s.comX, s.comY, s.comZ,
                 std::sin(orbitRad), std::cos(orbitRad),
                 std::sin(elevAngle), std::cos(elevAngle),
                 s.aspectRatioX, s.aspectRatioY);
@@ -231,11 +241,7 @@ int main(int argc, char** argv) {
                 compute.forceParticleCount(1);
 
             if (!engine.beginFrame()) continue;
-            renderer.drawFrame(std::sin(orbitRad), std::cos(orbitRad),
-                              std::sin(elevAngle), std::cos(elevAngle),
-                              s.singularityX, s.singularityY, s.singularityZ,
-                              s.aspectRatioX, s.aspectRatioY,
-                              s.sunPulse);
+            renderer.drawFrame(s, s.aspectRatioX, s.aspectRatioY);
             engine.endFrame();
 
             fpsFrames++;

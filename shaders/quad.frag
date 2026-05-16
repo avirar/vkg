@@ -9,7 +9,6 @@ layout(push_constant) uniform ParticlePush {
     float aspectY;
     float pointSizeMult;
     uint mode;
-    float hyperIntensity;
     float loR, loG, loB;
     float hiR, hiG, hiB;
 } pc;
@@ -24,7 +23,7 @@ void main() {
 
     vec3 color;
     if (pc.mode == 2u) {
-        float boost = 1.0 + fragHue * pc.hyperIntensity;
+        float boost = 1.0 + fragHue;
         color = vec3(pc.loR, pc.loG, pc.loB) * boost;
     } else if (pc.mode == 1u) {
         color = mix(vec3(pc.loR, pc.loG, pc.loB),

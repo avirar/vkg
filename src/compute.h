@@ -8,11 +8,12 @@ struct ComputePushConstants {
     float dt;
     float gravity;
     float damping;
-    float forceMult;  // precomputed: gravity * dt * (1 + damping)
+    float forceMult;
     uint32_t particleCount;
-    float singularityX;
-    float singularityY;
-    float singularityZ;
+    uint32_t singCount;
+    float comX;
+    float comY;
+    float comZ;
     float sinOrbit;
     float cosOrbit;
     float sinElev;
@@ -26,7 +27,12 @@ struct ComputePushConstants {
     float dbgScrX;
     float dbgScrY;
     float dbgBright;
-    float hyperIntensity;
+    float velocityIntensity;
+    float distanceIntensity;
+};
+
+struct SingData {
+    float x, y, z, pad;
 };
 
 class Compute {
@@ -37,7 +43,8 @@ public:
     void init(uint32_t particleCount);
     void recordInitialParticles(VkCommandBuffer cmd);
     void cleanupInitStaging();
-    void update(float dt, float singularityX, float singularityY, float singularityZ,
+    void update(float dt, uint32_t singCount, const SingData* singData,
+                float comX, float comY, float comZ,
                 float sinOrbit, float cosOrbit, float sinElev, float cosElev,
                 float aspectRatioX, float aspectRatioY);
     void dispatch(VkCommandBuffer cmd);
@@ -45,7 +52,8 @@ public:
     VkBuffer outputBuffer() const { return m_particleBuffers[m_outputIndex]; }
     uint32_t particleCount() const { return m_particleCount; }
     void forceParticleCount(uint32_t n) { m_particleCount = std::min(n, m_maxParticles); m_push.particleCount = m_particleCount; }
-    void setHyperIntensity(float hi) { m_push.hyperIntensity = hi; }
+    void setVelocityIntensity(float vi) { m_push.velocityIntensity = vi; }
+    void setDistanceIntensity(float di) { m_push.distanceIntensity = di; }
     void debugPlaceParticle(VkCommandBuffer cmd, float screenX, float screenY, float brightness);
 
 private:
@@ -53,6 +61,7 @@ private:
     void createPipelineLayout();
     void createPipeline();
     void createParticleBuffers();
+    void createSingularityBuffer();
     void createDescriptorSets();
 
     Engine& m_engine;
@@ -62,16 +71,20 @@ private:
     VkPipeline m_pipeline = VK_NULL_HANDLE;
 
     VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
-    VkDescriptorSet m_descriptorSetAB = VK_NULL_HANDLE; // binding0=A, binding1=B
-    VkDescriptorSet m_descriptorSetBA = VK_NULL_HANDLE; // binding0=B, binding1=A
+    VkDescriptorSet m_descriptorSetAB = VK_NULL_HANDLE;
+    VkDescriptorSet m_descriptorSetBA = VK_NULL_HANDLE;
 
     std::vector<VkBuffer> m_particleBuffers;
     std::vector<VkDeviceMemory> m_particleBufferMemories;
 
+    VkBuffer m_singBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_singMemory = VK_NULL_HANDLE;
+    SingData m_singData[8]{};
+
     uint32_t m_particleCount = 0;
     uint32_t m_maxParticles = 0;
-    uint32_t m_outputIndex = 0; // which buffer is the current output (0 or 1)
-    uint32_t m_activeSet = 0;   // 0 = use AB set, 1 = use BA set
+    uint32_t m_outputIndex = 0;
+    uint32_t m_activeSet = 0;
 
     ComputePushConstants m_push{};
     VkPhysicalDeviceProperties m_deviceProps{};

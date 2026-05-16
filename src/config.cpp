@@ -40,7 +40,9 @@ Config loadConfig(const std::string& path) {
             else if (key == "auto_point_scale") cfg.autoPointScale = !(val == "false" || val == "0" || val == "no");
             else if (key == "hypercolor_mode") cfg.hypercolorMode = val;
             else if (key == "hypercolor") cfg.hypercolorMode = (val == "true" || val == "1" || val == "yes") ? "color" : "off";
-            else if (key == "hyper_intensity") cfg.hyperIntensity = (float)std::atof(val.c_str());
+            else if (key == "hyper_intensity") cfg.hyperVelocityIntensity = (float)std::atof(val.c_str());
+            else if (key == "hyper_velocity_intensity") cfg.hyperVelocityIntensity = (float)std::atof(val.c_str());
+            else if (key == "hyper_distance_intensity") cfg.hyperDistanceIntensity = (float)std::atof(val.c_str());
             else if (key == "hyper_lo_r") cfg.hyperLoR = (float)std::atof(val.c_str());
             else if (key == "hyper_lo_g") cfg.hyperLoG = (float)std::atof(val.c_str());
             else if (key == "hyper_lo_b") cfg.hyperLoB = (float)std::atof(val.c_str());
@@ -49,6 +51,7 @@ Config loadConfig(const std::string& path) {
             else if (key == "hyper_hi_b") cfg.hyperHiB = (float)std::atof(val.c_str());
             else if (key == "hdr") cfg.hdr = !(val == "false" || val == "0" || val == "no");
             else if (key == "hdr_max_luminance") cfg.hdrMaxLuminance = (float)std::atof(val.c_str());
+            else if (key == "singularity_count") cfg.singularityCount = std::atoi(val.c_str());
         }
     }
     return cfg;
@@ -64,10 +67,10 @@ Config Config::load() {
         Config cfg = loadConfig(c);
         if (cfg.particles != 1000 || cfg.fullscreen || cfg.targetFps != 0
             || cfg.pointScale != 1.0f || !cfg.autoPointScale
-            || cfg.hypercolorMode != "color" || cfg.hyperIntensity != 8.0f
+            || cfg.hypercolorMode != "color" || cfg.hyperVelocityIntensity != 8.0f || cfg.hyperDistanceIntensity != 0.0f
             || cfg.hyperLoR != 1.0f || cfg.hyperLoG != 0.19f || cfg.hyperLoB != 0.065f
             || cfg.hyperHiR != 0.6f || cfg.hyperHiG != 0.8f || cfg.hyperHiB != 1.0f
-            || !cfg.hdr || cfg.hdrMaxLuminance != 1000.0f)
+            || !cfg.hdr || cfg.hdrMaxLuminance != 1000.0f || cfg.singularityCount != 1)
             return cfg;
     }
     return Config{};
