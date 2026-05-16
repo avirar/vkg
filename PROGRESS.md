@@ -135,6 +135,18 @@
 - Tested up to 1M particles — no validation errors, no buffer overruns
 - **Commit**: `0093727`
 
+## Milestone 20 — Benchmark Mode + Sync Fix ✅
+- `--benchmark [seconds]` flag: no vsync (IMMEDIATE present), timed run, prints avg FPS
+- No titlebar updates, no HDR message, no key controls in benchmark mode
+- Per-image render-finished semaphores (single acquire semaphore)
+- Per-frame fences with ring buffer (MAX_FRAMES_IN_FLIGHT)
+- Semaphores/fences properly destroyed in `cleanupSwapChain()`
+- `createSyncObjects()` called after `recreateSwapChain()` and `toggleHdr()`
+- Command buffer index wrapped via `m_currentFrame % size`
+- Baseline: 1000→6246 FPS, 100K→1940, 500K→593, 1M→336, 2M→179, 5M→97
+- `benchmark.sh` for automated multi-count testing
+- **Commit**: (pending)
+
 ## Known Issues
 - HDR output not visible on virtual display (Xvfb) — requires physical HDR monitor
 - Windows build not yet tested

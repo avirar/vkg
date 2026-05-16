@@ -5,7 +5,7 @@
 
 class Engine {
 public:
-    Engine(GLFWwindow* window, bool wantHdr = false);
+    Engine(GLFWwindow* window, bool wantHdr = false, bool benchmark = false);
     ~Engine();
 
     Engine(const Engine&) = delete;
@@ -25,11 +25,11 @@ public:
     VkFormat swapChainFormat() const { return m_swapChainFormat; }
     uint32_t currentImage() const { return m_currentImage; }
     VkFramebuffer currentFramebuffer() const { return m_swapChainFramebuffers[m_currentImage]; }
-    VkFence currentFence() const { return m_inFlightFences[m_currentFrame]; }
-    VkSemaphore imageAvailableSemaphore() const { return m_imageAvailableSemaphores[m_currentFrame]; }
-    VkSemaphore renderFinishedSemaphore() const { return m_renderFinishedSemaphores[m_currentFrame]; }
-    uint32_t currentFrame() const { return m_currentFrame; }
+    VkFence currentFence() const { return m_inFlightFences[m_currentFrame % m_inFlightFences.size()]; }
+    VkSemaphore imageAvailableSemaphore() const { return m_acquireSemaphore; }
+    VkSemaphore renderFinishedSemaphore() const { return m_renderFinishedSemaphores[m_currentImage]; }
     VkImage currentSwapchainImage() const { return m_swapChainImages[m_currentImage]; }
+    uint32_t currentFrame() const { return m_currentFrame; }
     void setFramebufferResized() { m_framebufferResized = true; }
     bool hdrEnabled() const { return m_hdrEnabled; }
     void setHdrMaxLuminance(float lum) { m_hdrMaxLuminance = lum; }
@@ -77,7 +77,7 @@ private:
     VkRenderPass m_renderPass = VK_NULL_HANDLE;
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
 
-    std::vector<VkSemaphore> m_imageAvailableSemaphores;
+    VkSemaphore m_acquireSemaphore = VK_NULL_HANDLE;
     std::vector<VkSemaphore> m_renderFinishedSemaphores;
     std::vector<VkFence> m_inFlightFences;
     uint32_t m_currentFrame = 0;
@@ -86,6 +86,7 @@ private:
     bool m_hdrEnabled = false;
     VkColorSpaceKHR m_colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     float m_hdrMaxLuminance = 1000.0f;
+    bool m_benchmarkMode = false;
 
     QueueFamilyIndices m_queueFamilies;
     SwapChainSupport m_swapChainSupport;

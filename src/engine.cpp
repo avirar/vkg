@@ -65,7 +65,7 @@ VkShaderModule createShaderModule(VkDevice device, const std::vector<char>& code
 }
 
 // Engine implementation
-Engine::Engine(GLFWwindow* window, bool wantHdr) : m_window(window) {
+Engine::Engine(GLFWwindow* window, bool wantHdr, bool benchmark) : m_window(window), m_benchmarkMode(benchmark) {
     createInstance();
     createSurface();
     pickPhysicalDevice();
@@ -350,7 +350,13 @@ void Engine::createSwapChain(bool wantHdr) {
     }
 
     m_colorSpace = chosenFormat.colorSpace;
-    auto mode = choosePresentMode(m_swapChainSupport.presentModes);
+    auto mode = [&]() {
+        if (m_benchmarkMode) {
+            for (const auto& m : m_swapChainSupport.presentModes)
+                if (m == VK_PRESENT_MODE_IMMEDIATE_KHR) return m;
+        }
+        return choosePresentMode(m_swapChainSupport.presentModes);
+    }();
     auto extent = chooseExtent(m_swapChainSupport.capabilities, m_window);
 
     uint32_t imageCount = m_swapChainSupport.capabilities.minImageCount + 1;
@@ -468,19 +474,22 @@ void Engine::createCommandPool() {
 }
 
 void Engine::createSyncObjects() {
-    m_imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    m_renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+    uint32_t semCount = (uint32_t)m_swapChainImages.size();
 
     VkSemaphoreCreateInfo si{};
     si.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    vkCreateSemaphore(m_device, &si, nullptr, &m_acquireSemaphore);
+
+    m_renderFinishedSemaphores.resize(semCount);
+    for (uint32_t i = 0; i < semCount; i++) {
+        vkCreateSemaphore(m_device, &si, nullptr, &m_renderFinishedSemaphores[i]);
+    }
+
     VkFenceCreateInfo fi{};
     fi.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fi.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
+    m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkCreateSemaphore(m_device, &si, nullptr, &m_imageAvailableSemaphores[i]);
-        vkCreateSemaphore(m_device, &si, nullptr, &m_renderFinishedSemaphores[i]);
         vkCreateFence(m_device, &fi, nullptr, &m_inFlightFences[i]);
     }
 }
@@ -500,6 +509,7 @@ void Engine::recreateSwapChain() {
     createSwapChain(m_hdrEnabled);
     createRenderPass();
     createFramebuffers();
+    createSyncObjects();
 }
 
 void Engine::cleanupSwapChain() {
@@ -507,6 +517,12 @@ void Engine::cleanupSwapChain() {
     for (auto& iv : m_swapChainImageViews) vkDestroyImageView(m_device, iv, nullptr);
     vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
     vkDestroyRenderPass(m_device, m_renderPass, nullptr);
+    vkDestroySemaphore(m_device, m_acquireSemaphore, nullptr);
+    for (auto& s : m_renderFinishedSemaphores) vkDestroySemaphore(m_device, s, nullptr);
+    for (auto& f : m_inFlightFences) vkDestroyFence(m_device, f, nullptr);
+    m_renderFinishedSemaphores.clear();
+    m_inFlightFences.clear();
+    m_acquireSemaphore = VK_NULL_HANDLE;
 }
 
 void Engine::setHdrMetadata() {
@@ -547,14 +563,16 @@ void Engine::toggleHdr() {
     createSwapChain(m_hdrEnabled);
     createRenderPass();
     createFramebuffers();
+    createSyncObjects();
     if (m_hdrEnabled) setHdrMetadata();
 }
 
 bool Engine::beginFrame() {
-    vkWaitForFences(m_device, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
+    uint32_t fenceIdx = m_currentFrame % m_inFlightFences.size();
+    vkWaitForFences(m_device, 1, &m_inFlightFences[fenceIdx], VK_TRUE, UINT64_MAX);
 
     VkResult result = vkAcquireNextImageKHR(m_device, m_swapChain, UINT64_MAX,
-        m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &m_currentImage);
+        m_acquireSemaphore, VK_NULL_HANDLE, &m_currentImage);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapChain();
         return false;
@@ -562,7 +580,8 @@ bool Engine::beginFrame() {
     if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
         throw std::runtime_error("Failed to acquire swapchain image");
 
-    vkResetFences(m_device, 1, &m_inFlightFences[m_currentFrame]);
+    vkResetFences(m_device, 1, &m_inFlightFences[fenceIdx]);
+    m_currentFrame++;
     return true;
 }
 
@@ -570,7 +589,7 @@ void Engine::endFrame() {
     VkPresentInfoKHR pi{};
     pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     pi.waitSemaphoreCount = 1;
-    pi.pWaitSemaphores = &m_renderFinishedSemaphores[m_currentFrame];
+    pi.pWaitSemaphores = &m_renderFinishedSemaphores[m_currentImage];
     pi.swapchainCount = 1;
     pi.pSwapchains = &m_swapChain;
     pi.pImageIndices = &m_currentImage;
@@ -582,8 +601,6 @@ void Engine::endFrame() {
     } else if (result != VK_SUCCESS) {
         throw std::runtime_error("Failed to present");
     }
-
-    m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void Engine::waitIdle() { vkDeviceWaitIdle(m_device); }

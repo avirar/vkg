@@ -378,7 +378,7 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
                           float singX, float singY, float singZ,
                           float aspectX, float aspectY,
                           float sunPulse) {
-    uint32_t frameIdx = m_engine.currentFrame();
+    uint32_t frameIdx = m_engine.currentFrame() % (uint32_t)m_commandBuffers.size();
     VkCommandBuffer cmd = m_commandBuffers[frameIdx];
 
     VkCommandBufferBeginInfo bi{};

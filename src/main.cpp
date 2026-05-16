@@ -31,6 +31,8 @@ int main(int argc, char** argv) {
 
     bool debugMode = false;
     bool startFullscreen = cfg.fullscreen;
+    bool benchmarkMode = false;
+    int benchmarkSeconds = 5;
 
     // CLI argument parsing
     for (int i = 1; i < argc; i++) {
@@ -45,6 +47,12 @@ int main(int argc, char** argv) {
             cfg.pointScale = (float)std::atof(argv[++i]);
             if (cfg.pointScale < 0.1f) cfg.pointScale = 0.1f;
             if (cfg.pointScale > 10.0f) cfg.pointScale = 10.0f;
+        } else if (std::strcmp(argv[i], "--benchmark") == 0) {
+            benchmarkMode = true;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                benchmarkSeconds = std::atoi(argv[++i]);
+                if (benchmarkSeconds < 1) benchmarkSeconds = 1;
+            }
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
             std::cout << "vkg — Vulkan GL Gravitation screensaver\n"
                       << "Usage: vkg [options]\n"
@@ -52,6 +60,7 @@ int main(int argc, char** argv) {
                       << "  --particles N    Number of particles (min: 2, default: 1000)\n"
                       << "  --point-scale F  Particle size multiplier (0.1-10.0, default: 1.0)\n"
                       << "  --fullscreen     Start in fullscreen mode\n"
+                      << "  --benchmark [S]  Benchmark mode: no vsync, run S seconds (default 5), print avg FPS\n"
                       << "  --help, -h       Show this help\n"
                       << "\nControls: ESC=quit  Space=pause  F=fullscreen  H=toggle HDR\n"
                       << "Config file: vkg.ini (auto-loaded from current directory)\n";
@@ -83,9 +92,9 @@ int main(int argc, char** argv) {
     }
 
     try {
-        Engine engine(window, cfg.hdr);
+        Engine engine(window, cfg.hdr, benchmarkMode);
         g_engine = &engine;
-        if (engine.hdrEnabled()) {
+        if (engine.hdrEnabled() && !benchmarkMode) {
             engine.setHdrMaxLuminance(cfg.hdrMaxLuminance);
             std::cout << "[HDR] Native HDR enabled (scRGB or HDR10 PQ)" << std::endl;
         }
@@ -119,6 +128,8 @@ int main(int argc, char** argv) {
 
         int fpsFrames = 0;
         auto fpsLastTime = std::chrono::high_resolution_clock::now();
+        auto benchStartTime = fpsLastTime;
+        int benchFrames = 0;
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
@@ -131,11 +142,20 @@ int main(int argc, char** argv) {
                 if (debugFrameCount > 1) break;
             }
 
-            // Key controls (single-press)
-            if (!debugMode && keyPressed(window, GLFW_KEY_SPACE, prevKeys)) {
+            // Benchmark exit
+            if (benchmarkMode) {
+                benchFrames++;
+                float benElapsed = std::chrono::duration_cast<std::chrono::duration<float>>(
+                    std::chrono::high_resolution_clock::now() - benchStartTime).count();
+                if (benElapsed >= (float)benchmarkSeconds)
+                    break;
+            }
+
+            // Key controls (single-press) — skip in benchmark mode
+            if (!debugMode && !benchmarkMode && keyPressed(window, GLFW_KEY_SPACE, prevKeys)) {
                 paused = !paused;
             }
-            if (!debugMode && keyPressed(window, GLFW_KEY_F, prevKeys)) {
+            if (!debugMode && !benchmarkMode && keyPressed(window, GLFW_KEY_F, prevKeys)) {
                 fullscreen = !fullscreen;
                 GLFWmonitor* monitor = fullscreen ? glfwGetPrimaryMonitor() : nullptr;
                 const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
@@ -145,7 +165,7 @@ int main(int argc, char** argv) {
                     glfwSetWindowMonitor(window, nullptr, 100, 100, 800, 600, 0);
                 }
             }
-            if (!debugMode && keyPressed(window, GLFW_KEY_H, prevKeys)) {
+            if (!debugMode && !benchmarkMode && keyPressed(window, GLFW_KEY_H, prevKeys)) {
                 engine.toggleHdr();
                 std::cout << "[HDR] " << (engine.hdrEnabled() ? "enabled" : "disabled") << std::endl;
                 continue; // skip frame — need to rebuild command buffers
@@ -197,12 +217,22 @@ int main(int argc, char** argv) {
             fpsFrames++;
             auto fpsNow = std::chrono::high_resolution_clock::now();
             float fpsElapsed = std::chrono::duration_cast<std::chrono::duration<float>>(fpsNow - fpsLastTime).count();
-            if (fpsElapsed >= 1.0f) {
+            if (!benchmarkMode && fpsElapsed >= 1.0f) {
                 int fps = (int)std::round(fpsFrames / fpsElapsed);
                 glfwSetWindowTitle(window, ("GL Gravitation Vulkan - " + std::to_string(fps) + " FPS | " + std::to_string(compute.particleCount()) + " particles | HDR " + (engine.hdrEnabled() ? "on" : "off")).c_str());
                 fpsFrames = 0;
                 fpsLastTime = fpsNow;
             }
+        }
+
+        if (benchmarkMode) {
+            float benElapsed = std::chrono::duration_cast<std::chrono::duration<float>>(
+                std::chrono::high_resolution_clock::now() - benchStartTime).count();
+            float avgFps = (float)benchFrames / benElapsed;
+            std::cout << "BENCHMARK particles=" << compute.particleCount()
+                      << " frames=" << benchFrames
+                      << " elapsed=" << benElapsed
+                      << " avg_fps=" << avgFps << std::endl;
         }
 
         engine.waitIdle();
