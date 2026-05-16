@@ -51,13 +51,15 @@ private:
     VkPipeline m_pipeline = VK_NULL_HANDLE;
 
     VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
-    std::vector<VkDescriptorSet> m_descriptorSets; // 2 sets, one per buffer
+    VkDescriptorSet m_descriptorSetAB = VK_NULL_HANDLE; // binding0=A, binding1=B
+    VkDescriptorSet m_descriptorSetBA = VK_NULL_HANDLE; // binding0=B, binding1=A
 
     std::vector<VkBuffer> m_particleBuffers;
     std::vector<VkDeviceMemory> m_particleBufferMemories;
 
     uint32_t m_particleCount = 0;
-    uint32_t m_outputIndex = 0;
+    uint32_t m_outputIndex = 0; // which buffer is the current output (0 or 1)
+    uint32_t m_activeSet = 0;   // 0 = use AB set, 1 = use BA set
 
     ComputePushConstants m_push{};
     VkPhysicalDeviceProperties m_deviceProps{};
