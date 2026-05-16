@@ -34,7 +34,10 @@ layout(push_constant) uniform PushConstants {
     float aspectRatioX;
     float aspectRatioY;
     uint seed;
-    uint _pad;
+    float debugMode;
+    float dbgScrX;
+    float dbgScrY;
+    float dbgBright;
 } pc;
 
 uint pcg_hash(uint v) {
@@ -52,6 +55,14 @@ void main() {
     if (idx >= pc.particleCount) return;
 
     Particle p = particlesIn[idx];
+
+    if (pc.debugMode > 0.5 && idx == 0u) {
+        p.screen_x = pc.dbgScrX;
+        p.screen_y = pc.dbgScrY;
+        p.brightness = pc.dbgBright;
+        particlesOut[0] = p;
+        return;
+    }
 
     if (pc.reinit != 0u) {
         float theta = randf(idx, pc.seed) * 6.2831853;

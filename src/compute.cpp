@@ -258,6 +258,10 @@ void Compute::update(float dt, float sx, float sy, float sz,
     m_push.aspectRatioX = arX;
     m_push.aspectRatioY = arY;
     m_push.seed = (uint32_t)std::chrono::steady_clock::now().time_since_epoch().count();
+    m_push.debugMode = 0.0f;
+    m_push.dbgScrX = 0.0f;
+    m_push.dbgScrY = 0.0f;
+    m_push.dbgBright = 0.0f;
 }
 
 void Compute::dispatch(VkCommandBuffer cmd) {
@@ -298,4 +302,31 @@ void Compute::dispatch(VkCommandBuffer cmd) {
 
     // Toggle active set for next frame
     m_activeSet = 1 - m_activeSet;
+}
+
+void Compute::debugPlaceParticle(VkCommandBuffer cmd, float screenX, float screenY, float brightness) {
+    m_outputIndex = (m_activeSet == 0) ? 1 : 0;
+    m_activeSet = 1 - m_activeSet;
+
+    Particle p{};
+    p.screen_x = screenX;
+    p.screen_y = screenY;
+    p.brightness = brightness;
+
+    vkCmdUpdateBuffer(cmd, m_particleBuffers[m_outputIndex], 0, sizeof(Particle), &p);
+
+    VkBufferMemoryBarrier bufBarrier{};
+    bufBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    bufBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    bufBarrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+    bufBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufBarrier.buffer = m_particleBuffers[m_outputIndex];
+    bufBarrier.offset = 0;
+    bufBarrier.size = VK_WHOLE_SIZE;
+
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+        0, 0, nullptr, 1, &bufBarrier, 0, nullptr);
 }

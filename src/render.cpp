@@ -2,11 +2,14 @@
 #include <array>
 #include <iostream>
 #include <cmath>
+#include <cstdio>
+#include <vector>
 
 Renderer::Renderer(Engine& engine) : m_engine(engine) {
     createCommandBuffers();
     createSunVertexBuffer();
     createSunIndexBuffer();
+    initScreenshotBuffer();
 }
 
 void Renderer::createPipelines() {
@@ -24,6 +27,8 @@ Renderer::~Renderer() {
     vkFreeMemory(m_engine.device(), m_sunVertexMemory, nullptr);
     vkDestroyBuffer(m_engine.device(), m_sunIndexBuffer, nullptr);
     vkFreeMemory(m_engine.device(), m_sunIndexMemory, nullptr);
+    if (m_ssBuffer) vkDestroyBuffer(m_engine.device(), m_ssBuffer, nullptr);
+    if (m_ssMemory) vkFreeMemory(m_engine.device(), m_ssMemory, nullptr);
     vkFreeCommandBuffers(m_engine.device(), m_engine.commandPool(),
                          (uint32_t)m_commandBuffers.size(), m_commandBuffers.data());
 }
@@ -375,7 +380,11 @@ void Renderer::drawFrame(float sinRot, float cosRot,
     vkBeginCommandBuffer(cmd, &bi);
 
     // Dispatch compute shader
-    if (m_compute) m_compute->dispatch(cmd);
+    if (m_debugMode) {
+        if (m_compute) m_compute->debugPlaceParticle(cmd, 0.5f, 0.3f, 1.0f);
+    } else if (m_compute) {
+        m_compute->dispatch(cmd);
+    }
 
     // Begin render pass
     VkRenderPassBeginInfo rpi{};
@@ -424,34 +433,42 @@ void Renderer::drawFrame(float sinRot, float cosRot,
         vkCmdBindIndexBuffer(cmd, m_sunIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
         // 7 layers matching original (glg.c:2377-2485): 0.20, 0.08, 0.04, 0.02, 0.02, 0.01, 0.01
-        float baseSize = 0.20f * aspectX;
+        float baseSize = 0.20f;
         SunPushConstants spc{};
         spc.centerX = sunScrX;
         spc.centerY = sunScrY;
 
         // Layer 1: 0.20
-        spc.scale = baseSize;
+        float layerSize = baseSize;
+        spc.scaleX = layerSize * aspectX;
+        spc.scaleY = layerSize;
         spc.alpha = 0.25f;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 
         // Layer 2: 0.08
-        spc.scale = baseSize * 0.4f;
+        layerSize = baseSize * 0.4f;
+        spc.scaleX = layerSize * aspectX;
+        spc.scaleY = layerSize;
         spc.alpha = 0.35f;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 
         // Layer 3: 0.04
-        spc.scale *= 0.5f;
+        layerSize *= 0.5f;
+        spc.scaleX = layerSize * aspectX;
+        spc.scaleY = layerSize;
         spc.alpha = 0.45f;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 
         // Layer 4: 0.02
-        spc.scale *= 0.5f;
+        layerSize *= 0.5f;
+        spc.scaleX = layerSize * aspectX;
+        spc.scaleY = layerSize;
         spc.alpha = 0.55f;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
@@ -464,7 +481,9 @@ void Renderer::drawFrame(float sinRot, float cosRot,
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 
         // Layer 6: 0.01
-        spc.scale *= 0.5f;
+        layerSize *= 0.5f;
+        spc.scaleX = layerSize * aspectX;
+        spc.scaleY = layerSize;
         spc.alpha = 0.80f;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
@@ -475,55 +494,17 @@ void Renderer::drawFrame(float sinRot, float cosRot,
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
-
-        // Layer 2: 0.08
-        spc.scale = baseSize * 0.4f;
-        spc.alpha = 0.35f;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDraw(cmd, 4, 1, 0, 0);
-
-        // Layer 3: 0.04
-        spc.scale *= 0.5f;
-        spc.alpha = 0.45f;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDraw(cmd, 4, 1, 0, 0);
-
-        // Layer 4: 0.02
-        spc.scale *= 0.5f;
-        spc.alpha = 0.55f;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDraw(cmd, 4, 1, 0, 0);
-
-        // Layer 5: same size
-        spc.alpha = 0.65f;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDraw(cmd, 4, 1, 0, 0);
-
-        // Layer 6: 0.01
-        spc.scale *= 0.5f;
-        spc.alpha = 0.80f;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDraw(cmd, 4, 1, 0, 0);
-
-        // Layer 7: same size
-        spc.alpha = 1.0f;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDraw(cmd, 4, 1, 0, 0);
     }
 
     // --- Draw particles ---
-    if (m_compute && m_compute->particleCount() > 0) {
+    if (!m_debugMode && m_compute && m_compute->particleCount() > 0) {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
 
         ParticlePushConstants ppc{};
         ppc.viewportHeight = (float)m_engine.extent().height;
         ppc.aspectY = aspectY;
+        ppc.pointSizeMult = m_debugMode ? 3.0f : 1.0f;
+        ppc._pad = 0.0f;
         vkCmdPushConstants(cmd, m_graphicsPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(ppc), &ppc);
 
@@ -540,6 +521,48 @@ void Renderer::drawFrame(float sinRot, float cosRot,
     }
 
     vkCmdEndRenderPass(cmd);
+
+    if (!m_ssCaptured) {
+        VkImage srcImage = m_engine.currentSwapchainImage();
+        VkExtent2D ext = m_engine.extent();
+
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = srcImage;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.layerCount = 1;
+        barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+        vkCmdPipelineBarrier(cmd,
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+        VkBufferImageCopy region{};
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.layerCount = 1;
+        region.imageExtent = {ext.width, ext.height, 1};
+
+        vkCmdCopyImageToBuffer(cmd, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                               m_ssBuffer, 1, &region);
+
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+
+        vkCmdPipelineBarrier(cmd,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
+    }
+
     vkEndCommandBuffer(cmd);
 
     VkSemaphore waitSem = m_engine.imageAvailableSemaphore();
@@ -561,4 +584,157 @@ void Renderer::drawFrame(float sinRot, float cosRot,
     VkResult result = vkQueueSubmit(m_engine.graphicsQueue(), 1, &si, fence);
     if (result != VK_SUCCESS)
         throw std::runtime_error("Failed to submit draw command buffer: code " + std::to_string(result));
+
+    if (m_debugMode)
+        debugDump(fence);
+    else
+        saveScreenshot(fence);
+}
+
+void Renderer::debugDump(VkFence fence) {
+    if (m_ssCaptured) return;
+    vkWaitForFences(m_engine.device(), 1, &fence, VK_TRUE, UINT64_MAX);
+
+    VkExtent2D extent = m_engine.extent();
+    VkDeviceSize size = extent.width * extent.height * 4;
+    void* data;
+    vkMapMemory(m_engine.device(), m_ssMemory, 0, size, 0, &data);
+    uint8_t* pixels = (uint8_t*)data;
+
+    // Summary: count pixels per brightness level
+    int counts[6] = {0,0,0,0,0,0};  // 0, 1-25, 26-50, 51-100, 101-180, 181-255
+    int maxVal = 0, maxX = 0, maxY = 0;
+    for (uint32_t y = 0; y < extent.height; y++) {
+        for (uint32_t x = 0; x < extent.width; x++) {
+            uint32_t i = y * extent.width + x;
+            uint8_t r = pixels[i * 4 + 2];
+            uint8_t g = pixels[i * 4 + 1];
+            uint8_t b = pixels[i * 4 + 0];
+            uint8_t m = r;
+            if (g > m) m = g;
+            if (b > m) m = b;
+            if (m > maxVal) { maxVal = m; maxX = x; maxY = y; }
+            if (m == 0) counts[0]++;
+            else if (m <= 25) counts[1]++;
+            else if (m <= 50) counts[2]++;
+            else if (m <= 100) counts[3]++;
+            else if (m <= 180) counts[4]++;
+            else counts[5]++;
+        }
+    }
+    printf("\n=== Debug: %ux%u ===\n", extent.width, extent.height);
+    printf("Pixels:  0=%d  .(1-25)=%d  :(26-50)=%d  +(51-100)=%d  *(101-180)=%d  #(181+)=%d\n",
+           counts[0], counts[1], counts[2], counts[3], counts[4], counts[5]);
+    printf("Brightest: (%d,%d) R=%u G=%u B=%u\n\n", maxX, maxY,
+           pixels[(maxY * extent.width + maxX) * 4 + 2],
+           pixels[(maxY * extent.width + maxX) * 4 + 1],
+           pixels[(maxY * extent.width + maxX) * 4 + 0]);
+
+    // ASCII grid (full screen)
+    printf("=== ASCII grid (legend: .=1-25 :=26-50 +=51-100 *=101-180 #=181+) ===\n");
+    for (uint32_t y = 0; y < extent.height; y++) {
+        for (uint32_t x = 0; x < extent.width; x++) {
+            uint32_t i = y * extent.width + x;
+            uint8_t r = pixels[i * 4 + 2];
+            uint8_t g = pixels[i * 4 + 1];
+            uint8_t b = pixels[i * 4 + 0];
+            uint8_t maxC = r;
+            if (g > maxC) maxC = g;
+            if (b > maxC) maxC = b;
+            char c;
+            if (maxC == 0)      c = ' ';
+            else if (maxC <= 25)  c = '.';
+            else if (maxC <= 50)  c = ':';
+            else if (maxC <= 100) c = '+';
+            else if (maxC <= 180) c = '*';
+            else                  c = '#';
+            putchar(c);
+        }
+        putchar('\n');
+    }
+
+    // Numeric dump of center 20x20 region
+    printf("\n=== Center 20x20 numeric (max(R,G,B) per pixel) ===\n");
+    int cy = extent.height / 2;
+    int cx = extent.width / 2;
+    for (int y = cy - 10; y < cy + 10; y++) {
+        if (y < 0 || y >= (int)extent.height) {
+            printf("---\n");
+            continue;
+        }
+        for (int x = cx - 10; x < cx + 10; x++) {
+            if (x < 0 || x >= (int)extent.width) {
+                printf("---");
+                continue;
+            }
+            uint32_t i = y * extent.width + x;
+            uint8_t r = pixels[i * 4 + 2];
+            uint8_t g = pixels[i * 4 + 1];
+            uint8_t b = pixels[i * 4 + 0];
+            uint8_t m = r;
+            if (g > m) m = g;
+            if (b > m) m = b;
+            printf("%3u ", m);
+        }
+        printf("\n");
+    }
+
+    // All non-zero pixels outside center region (to find debug particle)
+    printf("\n=== Non-zero pixels outside center 20x20 ===\n");
+    int found = 0;
+    for (uint32_t y = 0; y < extent.height && found < 50; y++) {
+        for (uint32_t x = 0; x < extent.width && found < 50; x++) {
+            if (x >= (uint32_t)(cx - 10) && x <= (uint32_t)(cx + 9) &&
+                y >= (uint32_t)(cy - 10) && y <= (uint32_t)(cy + 9))
+                continue;
+            uint32_t i = y * extent.width + x;
+            uint8_t r = pixels[i * 4 + 2];
+            uint8_t g = pixels[i * 4 + 1];
+            uint8_t b = pixels[i * 4 + 0];
+            if (r > 0 || g > 0 || b > 0) {
+                printf("  (%u,%u) R=%u G=%u B=%u\n", x, y, r, g, b);
+                found++;
+            }
+        }
+    }
+    if (found == 0) printf("  (none)\n");
+
+    vkUnmapMemory(m_engine.device(), m_ssMemory);
+    m_ssCaptured = true;
+}
+
+void Renderer::initScreenshotBuffer() {
+    VkExtent2D extent = m_engine.extent();
+    VkDeviceSize size = extent.width * extent.height * 4;
+    m_engine.createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        m_ssBuffer, m_ssMemory);
+}
+
+void Renderer::saveScreenshot(VkFence fence) {
+    if (m_ssCaptured) return;
+    vkWaitForFences(m_engine.device(), 1, &fence, VK_TRUE, UINT64_MAX);
+
+    VkExtent2D extent = m_engine.extent();
+    VkDeviceSize size = extent.width * extent.height * 4;
+    void* data;
+    vkMapMemory(m_engine.device(), m_ssMemory, 0, size, 0, &data);
+
+    uint8_t* pixels = (uint8_t*)data;
+    std::vector<uint8_t> rgb(extent.width * extent.height * 3);
+    for (uint32_t i = 0; i < extent.width * extent.height; i++) {
+        rgb[i * 3 + 0] = pixels[i * 4 + 2];
+        rgb[i * 3 + 1] = pixels[i * 4 + 1];
+        rgb[i * 3 + 2] = pixels[i * 4 + 0];
+    }
+
+    FILE* f = fopen("/tmp/vkg_capture.ppm", "wb");
+    if (f) {
+        fprintf(f, "P6\n%u %u\n255\n", extent.width, extent.height);
+        fwrite(rgb.data(), 1, rgb.size(), f);
+        fclose(f);
+    }
+
+    vkUnmapMemory(m_engine.device(), m_ssMemory);
+    m_ssCaptured = true;
 }

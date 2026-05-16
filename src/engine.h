@@ -29,6 +29,7 @@ public:
     VkSemaphore imageAvailableSemaphore() const { return m_imageAvailableSemaphores[m_currentFrame]; }
     VkSemaphore renderFinishedSemaphore() const { return m_renderFinishedSemaphores[m_currentFrame]; }
     uint32_t currentFrame() const { return m_currentFrame; }
+    VkImage currentSwapchainImage() const { return m_swapChainImages[m_currentImage]; }
     void setFramebufferResized() { m_framebufferResized = true; }
 
     VkCommandBuffer beginSingleTimeCommands();

@@ -307,7 +307,7 @@ void Engine::createSwapChain() {
     sci.imageColorSpace = format.colorSpace;
     sci.imageExtent = extent;
     sci.imageArrayLayers = 1;
-    sci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    sci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
     uint32_t qfIndices[] = { m_queueFamilies.graphics.value(), m_queueFamilies.present.value() };
     if (m_queueFamilies.graphics != m_queueFamilies.present) {

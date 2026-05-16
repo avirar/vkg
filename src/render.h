@@ -7,13 +7,17 @@
 struct SunPushConstants {
     float centerX;
     float centerY;
-    float scale;
+    float scaleX;
+    float scaleY;
     float alpha;
+    float _pad;
 };
 
 struct ParticlePushConstants {
     float viewportHeight;
     float aspectY;
+    float pointSizeMult;
+    float _pad;
 };
 
 class Renderer {
@@ -26,6 +30,7 @@ public:
 
     void setCompute(Compute* compute) { m_compute = compute; }
     void setTextures(Textures* tex) { m_textures = tex; createPipelines(); }
+    void setDebug(bool d) { m_debugMode = d; }
     void drawFrame(float sinRot, float cosRot,
                    float singX, float singY, float singZ,
                    float aspectX, float aspectY);
@@ -55,4 +60,12 @@ private:
     VkDeviceMemory m_sunIndexMemory = VK_NULL_HANDLE;
 
     std::vector<VkCommandBuffer> m_commandBuffers;
+
+    VkBuffer m_ssBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_ssMemory = VK_NULL_HANDLE;
+    bool m_ssCaptured = false;
+    bool m_debugMode = false;
+    void initScreenshotBuffer();
+    void saveScreenshot(VkFence fence);
+    void debugDump(VkFence fence);
 };

@@ -7,6 +7,7 @@
 #include <iostream>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <unordered_map>
 
 static Engine* g_engine = nullptr;
@@ -24,12 +25,16 @@ static bool keyPressed(GLFWwindow* window, int key, std::unordered_map<int, bool
     return result;
 }
 
-int main() {
+int main(int argc, char** argv) {
+    bool debugMode = (argc > 1 && std::strcmp(argv[1], "--debug") == 0);
+    int winW = debugMode ? 80 : 800;
+    int winH = debugMode ? 60 : 600;
+
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "GL Gravitation Vulkan", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(winW, winH, "GL Gravitation Vulkan", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -42,25 +47,28 @@ int main() {
         Engine engine(window);
         g_engine = &engine;
 
-        Simulation sim(1000);
+        Simulation sim(debugMode ? 1 : 1000);
         Compute compute(engine);
         compute.init(sim.state().particleCount);
 
         Renderer renderer(engine);
         renderer.setCompute(&compute);
+        renderer.setDebug(debugMode);
 
         Textures textures(engine);
         textures.createProceduralTextures();
         renderer.setTextures(&textures);
 
         Audio audio;
-        // audio disabled by default; uncomment to enable:
-        // audio.load("glg.wav");
+        if (!debugMode) {
+            // audio.load("glg.wav");
+        }
 
         auto lastTime = std::chrono::high_resolution_clock::now();
         bool paused = false;
         bool fullscreen = false;
         std::unordered_map<int, bool> prevKeys;
+        int debugFrameCount = 0;
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
@@ -68,14 +76,19 @@ int main() {
             if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
 
+            if (debugMode) {
+                debugFrameCount++;
+                if (debugFrameCount > 1) break;
+            }
+
             // Key controls (single-press)
-            if (keyPressed(window, GLFW_KEY_SPACE, prevKeys)) {
+            if (!debugMode && keyPressed(window, GLFW_KEY_SPACE, prevKeys)) {
                 paused = !paused;
             }
-            if (keyPressed(window, GLFW_KEY_R, prevKeys)) {
+            if (!debugMode && keyPressed(window, GLFW_KEY_R, prevKeys)) {
                 sim.forceReinit();
             }
-            if (keyPressed(window, GLFW_KEY_F, prevKeys)) {
+            if (!debugMode && keyPressed(window, GLFW_KEY_F, prevKeys)) {
                 fullscreen = !fullscreen;
                 GLFWmonitor* monitor = fullscreen ? glfwGetPrimaryMonitor() : nullptr;
                 const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
@@ -117,6 +130,9 @@ int main() {
                 std::sin(angleRad), std::cos(angleRad),
                 s.aspectRatioX, s.aspectRatioY,
                 doReinit);
+
+            if (debugMode)
+                compute.forceParticleCount(1);
 
             if (!engine.beginFrame()) continue;
             renderer.drawFrame(std::sin(angleRad), std::cos(angleRad),

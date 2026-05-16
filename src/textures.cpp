@@ -23,7 +23,7 @@ void Textures::createImage(uint32_t w, uint32_t h, VkImage& image, VkDeviceMemor
     VkImageCreateInfo ici{};
     ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     ici.imageType = VK_IMAGE_TYPE_2D;
-    ici.format = VK_FORMAT_R8G8B8A8_SRGB;
+    ici.format = VK_FORMAT_R8G8B8A8_UNORM;
     ici.extent = {w, h, 1};
     ici.mipLevels = 1;
     ici.arrayLayers = 1;
@@ -220,14 +220,14 @@ void Textures::createProceduralTextures() {
     {
         createImage(SUN_TEX_W, SUN_TEX_H, m_sunTexture, m_sunTextureMemory);
         uploadTexture(m_sunTexture, SUN_TEX_W, SUN_TEX_H, sunTextureData);
-        createImageView(m_sunTexture, VK_FORMAT_R8G8B8A8_SRGB, m_sunTextureView);
+        createImageView(m_sunTexture, VK_FORMAT_R8G8B8A8_UNORM, m_sunTextureView);
     }
 
     // 16x16 particle glow texture — from original binary LA data
     {
         createImage(PARTICLE_TEX_W, PARTICLE_TEX_H, m_particleTexture, m_particleTextureMemory);
         uploadTexture(m_particleTexture, PARTICLE_TEX_W, PARTICLE_TEX_H, particleTextureData);
-        createImageView(m_particleTexture, VK_FORMAT_R8G8B8A8_SRGB, m_particleTextureView);
+        createImageView(m_particleTexture, VK_FORMAT_R8G8B8A8_UNORM, m_particleTextureView);
     }
 
     createDescriptorSet();

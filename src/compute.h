@@ -19,7 +19,10 @@ struct ComputePushConstants {
     float aspectRatioX;
     float aspectRatioY;
     uint32_t seed;
-    uint32_t _pad;
+    float debugMode;
+    float dbgScrX;
+    float dbgScrY;
+    float dbgBright;
 };
 
 class Compute {
@@ -35,6 +38,8 @@ public:
 
     VkBuffer outputBuffer() const { return m_particleBuffers[m_outputIndex]; }
     uint32_t particleCount() const { return m_particleCount; }
+    void forceParticleCount(uint32_t n) { m_particleCount = n; m_push.particleCount = n; }
+    void debugPlaceParticle(VkCommandBuffer cmd, float screenX, float screenY, float brightness);
 
 private:
     void createDescriptorSetLayout();
