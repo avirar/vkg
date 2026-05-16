@@ -170,6 +170,11 @@
 - **P9**: Precomputed `forceMult = gravity * dt * (1 + damping)` — compute shader does 3 fewer muls/particle
 - **P8**: Cached `autoPointScale` — `std::sqrt` only recomputes when count changes >10%
 - (P5 compute sqrt deferred — compute is not the bottleneck; P7 brightness point size done in Tier 1)
+- **Commit**: `0250415`
+
+## Milestone 24 — Tier 3 Misc Optimizations ✅
+- **P13**: Cleaned particle buffer usage flags (removed `VERTEX_BUFFER_BIT`, `TRANSFER_SRC_BIT` from physics-only buffers)
+- (P11 double fence was false flag — already correct; P10 sun instancing deferred; P12 batch init deferred)
 - **Commit**: (pending)
 
 ## Known Issues
