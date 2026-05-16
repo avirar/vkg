@@ -603,13 +603,15 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
 
 void Renderer::setParticleColors(const Config& cfg) {
     m_ppc = {};
-    m_ppc.hypercolor = cfg.hypercolor ? 1u : 0u;
+    if (cfg.hypercolorMode == "brightness")
+        m_ppc.mode = 2u;
+    else if (cfg.hypercolorMode == "color")
+        m_ppc.mode = 1u;
+    else
+        m_ppc.mode = 0u;  // "off" or unknown
     m_ppc.hyperIntensity = cfg.hyperIntensity;
     m_ppc.loR = cfg.hyperLoR; m_ppc.loG = cfg.hyperLoG; m_ppc.loB = cfg.hyperLoB;
     m_ppc.hiR = cfg.hyperHiR; m_ppc.hiG = cfg.hyperHiG; m_ppc.hiB = cfg.hyperHiB;
-    m_ppc.staticR = cfg.particleColorR;
-    m_ppc.staticG = cfg.particleColorG;
-    m_ppc.staticB = cfg.particleColorB;
 }
 
 void Renderer::debugDump(VkFence fence) {

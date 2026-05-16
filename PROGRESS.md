@@ -96,6 +96,19 @@
 - Push constants pass colors to both vert+frag shaders
 - Hypercolor toggle enables/disables velocity→hue remapping
 - Configurable low/high velocity endpoint colors
+- **Commit**: `dfa9c34`
+
+## Milestone 17 — Hypercolor Mode Rework + Particle Count ✅
+- `hypercolor` changed from bool to `hypercolor_mode` string: `"off"`, `"color"`, `"brightness"`
+- `"color"`: blends lo→hi color based on velocity hue (same as before)
+- `"brightness"`: boosts base color brightness by velocity (no hue shift)
+- `"off"`: uses static base color only
+- Merged `particle_color_*` into `hyper_lo_*` (single base color for all modes)
+- Removed `staticColor` from push constants — loR/G/B serves all three modes
+- `hyper_intensity` now passed to compute shader (replaces hardcoded 8.0)
+- Particle count added to titlebar: `"FPS | N particles"`
+- Legacy `hypercolor = true/false` ini key still parsed (maps to color/off)
+- Push constant struct shrunk 76→44 bytes (vec3 padding → flat floats)
 - **Commit**: (pending)
 
 ## Known Issues

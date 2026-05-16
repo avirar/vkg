@@ -18,11 +18,10 @@ struct ParticlePushConstants {
     float viewportHeight;
     float aspectY;
     float pointSizeMult;
-    uint32_t hypercolor;
+    uint32_t mode;  // 0=off, 1=color, 2=brightness
     float hyperIntensity;
     float loR, loG, loB;
     float hiR, hiG, hiB;
-    float staticR, staticG, staticB;
 };
 
 class Renderer {

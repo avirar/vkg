@@ -24,6 +24,7 @@ struct ComputePushConstants {
     float dbgScrX;
     float dbgScrY;
     float dbgBright;
+    float hyperIntensity;
 };
 
 class Compute {
@@ -40,6 +41,7 @@ public:
     VkBuffer outputBuffer() const { return m_particleBuffers[m_outputIndex]; }
     uint32_t particleCount() const { return m_particleCount; }
     void forceParticleCount(uint32_t n) { m_particleCount = n; m_push.particleCount = n; }
+    void setHyperIntensity(float hi) { m_push.hyperIntensity = hi; }
     void debugPlaceParticle(VkCommandBuffer cmd, float screenX, float screenY, float brightness);
 
 private:

@@ -10,11 +10,10 @@ layout(push_constant) uniform ParticlePush {
     float viewportHeight;
     float aspectY;
     float pointSizeMult;
-    uint hypercolor;
+    uint mode;
     float hyperIntensity;
     float loR, loG, loB;
     float hiR, hiG, hiB;
-    float staticR, staticG, staticB;
 } pc;
 
 void main() {
@@ -25,12 +24,17 @@ void main() {
     vec4 texColor = texture(texSampler, gl_PointCoord);
 
     vec3 color;
-    if (pc.hypercolor != 0u) {
-        float hue = clamp(fragHue * pc.hyperIntensity / 8.0, 0.0, 1.0);
+    if (pc.mode == 1u) {
+        // color mode: blend lo→hi based on velocity hue
         color = mix(vec3(pc.loR, pc.loG, pc.loB),
-                    vec3(pc.hiR, pc.hiG, pc.hiB), hue);
+                    vec3(pc.hiR, pc.hiG, pc.hiB), fragHue);
+    } else if (pc.mode == 2u) {
+        // brightness mode: base color + velocity brightness boost
+        float boost = 1.0 + fragHue * pc.hyperIntensity;
+        color = vec3(pc.loR, pc.loG, pc.loB) * boost;
     } else {
-        color = vec3(pc.staticR, pc.staticG, pc.staticB);
+        // off: static base color
+        color = vec3(pc.loR, pc.loG, pc.loB);
     }
 
     outColor = vec4(color * fragBrightness * texColor.r,

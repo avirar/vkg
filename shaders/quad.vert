@@ -8,11 +8,10 @@ layout(push_constant) uniform ParticlePush {
     float viewportHeight;
     float aspectY;
     float pointSizeMult;
-    uint hypercolor;
+    uint mode;
     float hyperIntensity;
     float loR, loG, loB;
     float hiR, hiG, hiB;
-    float staticR, staticG, staticB;
 } pc;
 
 layout(location = 0) out float fragBrightness;

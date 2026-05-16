@@ -39,6 +39,7 @@ layout(push_constant) uniform PushConstants {
     float dbgScrX;
     float dbgScrY;
     float dbgBright;
+    float hyperIntensity;
 } pc;
 
 uint pcg_hash(uint v) {
@@ -99,7 +100,7 @@ void main() {
     p.brightness = brightness;
 
     float velMag = sqrt(p.vel_x*p.vel_x + p.vel_y*p.vel_y + p.vel_z*p.vel_z);
-    p.hue = clamp(velMag * 8.0, 0.0, 1.0);
+    p.hue = clamp(velMag * pc.hyperIntensity, 0.0, 1.0);
 
     particlesOut[idx] = p;
 }

@@ -96,6 +96,7 @@ int main(int argc, char** argv) {
         renderer.setDebug(debugMode);
         renderer.setPointScale(cfg.pointScale);
         renderer.setParticleColors(cfg);
+        compute.setHyperIntensity(cfg.hyperIntensity);
 
         Textures textures(engine);
         textures.createProceduralTextures();
@@ -186,7 +187,7 @@ int main(int argc, char** argv) {
             float fpsElapsed = std::chrono::duration_cast<std::chrono::duration<float>>(fpsNow - fpsLastTime).count();
             if (fpsElapsed >= 1.0f) {
                 int fps = (int)std::round(fpsFrames / fpsElapsed);
-                glfwSetWindowTitle(window, ("GL Gravitation Vulkan - " + std::to_string(fps) + " FPS").c_str());
+                glfwSetWindowTitle(window, ("GL Gravitation Vulkan - " + std::to_string(fps) + " FPS | " + std::to_string(sim.state().particleCount) + " particles").c_str());
                 fpsFrames = 0;
                 fpsLastTime = fpsNow;
             }

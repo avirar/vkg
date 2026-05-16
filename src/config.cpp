@@ -37,7 +37,8 @@ Config loadConfig(const std::string& path) {
             else if (key == "fullscreen") cfg.fullscreen = (val == "true" || val == "1" || val == "yes");
             else if (key == "target_fps") cfg.targetFps = std::atoi(val.c_str());
             else if (key == "point_scale") cfg.pointScale = (float)std::atof(val.c_str());
-            else if (key == "hypercolor") cfg.hypercolor = !(val == "false" || val == "0" || val == "no");
+            else if (key == "hypercolor_mode") cfg.hypercolorMode = val;
+            else if (key == "hypercolor") cfg.hypercolorMode = (val == "true" || val == "1" || val == "yes") ? "color" : "off";
             else if (key == "hyper_intensity") cfg.hyperIntensity = (float)std::atof(val.c_str());
             else if (key == "hyper_lo_r") cfg.hyperLoR = (float)std::atof(val.c_str());
             else if (key == "hyper_lo_g") cfg.hyperLoG = (float)std::atof(val.c_str());
@@ -45,9 +46,6 @@ Config loadConfig(const std::string& path) {
             else if (key == "hyper_hi_r") cfg.hyperHiR = (float)std::atof(val.c_str());
             else if (key == "hyper_hi_g") cfg.hyperHiG = (float)std::atof(val.c_str());
             else if (key == "hyper_hi_b") cfg.hyperHiB = (float)std::atof(val.c_str());
-            else if (key == "particle_color_r") cfg.particleColorR = (float)std::atof(val.c_str());
-            else if (key == "particle_color_g") cfg.particleColorG = (float)std::atof(val.c_str());
-            else if (key == "particle_color_b") cfg.particleColorB = (float)std::atof(val.c_str());
         }
     }
     return cfg;
@@ -61,7 +59,11 @@ Config Config::load() {
     };
     for (auto& c : candidates) {
         Config cfg = loadConfig(c);
-        if (cfg.particles != 1000 || cfg.fullscreen || cfg.targetFps != 0)
+        if (cfg.particles != 1000 || cfg.fullscreen || cfg.targetFps != 0
+            || cfg.pointScale != 1.0f
+            || cfg.hypercolorMode != "color" || cfg.hyperIntensity != 8.0f
+            || cfg.hyperLoR != 1.0f || cfg.hyperLoG != 0.19f || cfg.hyperLoB != 0.065f
+            || cfg.hyperHiR != 0.6f || cfg.hyperHiG != 0.8f || cfg.hyperHiB != 1.0f)
             return cfg;
     }
     return Config{};
