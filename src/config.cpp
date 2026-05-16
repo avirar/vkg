@@ -37,6 +37,17 @@ Config loadConfig(const std::string& path) {
             else if (key == "fullscreen") cfg.fullscreen = (val == "true" || val == "1" || val == "yes");
             else if (key == "target_fps") cfg.targetFps = std::atoi(val.c_str());
             else if (key == "point_scale") cfg.pointScale = (float)std::atof(val.c_str());
+            else if (key == "hypercolor") cfg.hypercolor = !(val == "false" || val == "0" || val == "no");
+            else if (key == "hyper_intensity") cfg.hyperIntensity = (float)std::atof(val.c_str());
+            else if (key == "hyper_lo_r") cfg.hyperLoR = (float)std::atof(val.c_str());
+            else if (key == "hyper_lo_g") cfg.hyperLoG = (float)std::atof(val.c_str());
+            else if (key == "hyper_lo_b") cfg.hyperLoB = (float)std::atof(val.c_str());
+            else if (key == "hyper_hi_r") cfg.hyperHiR = (float)std::atof(val.c_str());
+            else if (key == "hyper_hi_g") cfg.hyperHiG = (float)std::atof(val.c_str());
+            else if (key == "hyper_hi_b") cfg.hyperHiB = (float)std::atof(val.c_str());
+            else if (key == "particle_color_r") cfg.particleColorR = (float)std::atof(val.c_str());
+            else if (key == "particle_color_g") cfg.particleColorG = (float)std::atof(val.c_str());
+            else if (key == "particle_color_b") cfg.particleColorB = (float)std::atof(val.c_str());
         }
     }
     return cfg;

@@ -88,6 +88,14 @@
 - Hue computed from velocity magnitude in compute shader
 - Fragment shader interpolates orange→blue-white based on hue
 - Added vertex attribute location 2 for hue pipeline
+- **Commit**: `1ab62e8`
+
+## Milestone 16 — Configurable Particle Colors ✅
+- `hypercolor`, `hyper_intensity`, `hyper_lo_r/g/b`, `hyper_hi_r/g/b`,
+  `particle_color_r/g/b` config options in vkg.ini
+- Push constants pass colors to both vert+frag shaders
+- Hypercolor toggle enables/disables velocity→hue remapping
+- Configurable low/high velocity endpoint colors
 - **Commit**: (pending)
 
 ## Known Issues

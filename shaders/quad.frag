@@ -6,6 +6,17 @@ layout(location = 0) out vec4 outColor;
 
 layout(set = 0, binding = 0) uniform sampler2D texSampler;
 
+layout(push_constant) uniform ParticlePush {
+    float viewportHeight;
+    float aspectY;
+    float pointSizeMult;
+    uint hypercolor;
+    float hyperIntensity;
+    float loR, loG, loB;
+    float hiR, hiG, hiB;
+    float staticR, staticG, staticB;
+} pc;
+
 void main() {
     vec2 center = gl_PointCoord - 0.5;
     float dist = length(center);
@@ -13,10 +24,14 @@ void main() {
 
     vec4 texColor = texture(texSampler, gl_PointCoord);
 
-    // Low velocity = orange (1.0, 0.19, 0.065), high velocity = blue-white
-    vec3 loColor = vec3(1.0, 0.19, 0.065);
-    vec3 hiColor = vec3(0.6, 0.8, 1.0);
-    vec3 color = mix(loColor, hiColor, fragHue);
+    vec3 color;
+    if (pc.hypercolor != 0u) {
+        float hue = clamp(fragHue * pc.hyperIntensity / 8.0, 0.0, 1.0);
+        color = mix(vec3(pc.loR, pc.loG, pc.loB),
+                    vec3(pc.hiR, pc.hiG, pc.hiB), hue);
+    } else {
+        color = vec3(pc.staticR, pc.staticG, pc.staticB);
+    }
 
     outColor = vec4(color * fragBrightness * texColor.r,
                     alpha * fragBrightness * texColor.r);

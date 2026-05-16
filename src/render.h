@@ -3,6 +3,7 @@
 #include "engine.h"
 #include "compute.h"
 #include "textures.h"
+#include "config.h"
 
 struct SunPushConstants {
     float centerX;
@@ -17,7 +18,11 @@ struct ParticlePushConstants {
     float viewportHeight;
     float aspectY;
     float pointSizeMult;
-    float _pad;
+    uint32_t hypercolor;
+    float hyperIntensity;
+    float loR, loG, loB;
+    float hiR, hiG, hiB;
+    float staticR, staticG, staticB;
 };
 
 class Renderer {
@@ -32,6 +37,7 @@ public:
     void setTextures(Textures* tex) { m_textures = tex; createPipelines(); }
     void setDebug(bool d) { m_debugMode = d; }
     void setPointScale(float s) { m_pointScale = s; }
+    void setParticleColors(const Config& cfg);
     void drawFrame(float sinOrbit, float cosOrbit,
                    float sinElev, float cosElev,
                    float singX, float singY, float singZ,
@@ -69,6 +75,7 @@ private:
     bool m_ssCaptured = false;
     bool m_debugMode = false;
     float m_pointScale = 1.0f;
+    ParticlePushConstants m_ppc{};
     void initScreenshotBuffer();
     void saveScreenshot(VkFence fence);
     void debugDump(VkFence fence);

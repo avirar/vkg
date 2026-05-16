@@ -335,7 +335,7 @@ void Renderer::createGraphicsPipeline() {
     VkDescriptorSetLayout setLayouts[1] = { m_textures->descriptorSetLayout() };
 
     VkPushConstantRange pcr{};
-    pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pcr.size = sizeof(ParticlePushConstants);
 
     VkPipelineLayoutCreateInfo plci{};
@@ -510,12 +510,12 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
     if (!m_debugMode && m_compute && m_compute->particleCount() > 0) {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
 
-        ParticlePushConstants ppc{};
+        ParticlePushConstants ppc = m_ppc;
         ppc.viewportHeight = (float)m_engine.extent().height;
         ppc.aspectY = aspectY;
         ppc.pointSizeMult = m_debugMode ? 3.0f : m_pointScale;
-        ppc._pad = 0.0f;
-        vkCmdPushConstants(cmd, m_graphicsPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+        vkCmdPushConstants(cmd, m_graphicsPipelineLayout,
+                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                            0, sizeof(ppc), &ppc);
 
         if (m_textures) {
@@ -599,6 +599,17 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
         debugDump(fence);
     else
         saveScreenshot(fence);
+}
+
+void Renderer::setParticleColors(const Config& cfg) {
+    m_ppc = {};
+    m_ppc.hypercolor = cfg.hypercolor ? 1u : 0u;
+    m_ppc.hyperIntensity = cfg.hyperIntensity;
+    m_ppc.loR = cfg.hyperLoR; m_ppc.loG = cfg.hyperLoG; m_ppc.loB = cfg.hyperLoB;
+    m_ppc.hiR = cfg.hyperHiR; m_ppc.hiG = cfg.hyperHiG; m_ppc.hiB = cfg.hyperHiB;
+    m_ppc.staticR = cfg.particleColorR;
+    m_ppc.staticG = cfg.particleColorG;
+    m_ppc.staticB = cfg.particleColorB;
 }
 
 void Renderer::debugDump(VkFence fence) {

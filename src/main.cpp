@@ -95,6 +95,7 @@ int main(int argc, char** argv) {
         renderer.setCompute(&compute);
         renderer.setDebug(debugMode);
         renderer.setPointScale(cfg.pointScale);
+        renderer.setParticleColors(cfg);
 
         Textures textures(engine);
         textures.createProceduralTextures();
