@@ -19,7 +19,7 @@ layout(location = 1) out float fragHue;
 
 void main() {
     gl_Position = vec4(inScreenPos, 0.0, 1.0);
-    gl_PointSize = pc.viewportHeight * pc.aspectY * 0.02 * pc.pointSizeMult;
+    gl_PointSize = pc.viewportHeight * pc.aspectY * 0.02 * pc.pointSizeMult * inBrightness;
     fragBrightness = inBrightness;
     fragHue = inHue;
 }

@@ -156,6 +156,15 @@
 - Fragment/ROP confirmed as bottleneck (half point size ≈ 2x FPS)
 - **Commit**: `aad7e2c`
 
+## Milestone 22 — Tier 1 Fragment Shader + Blend Optimizations ✅
+- **Blend saturation**: `ONE_MINUS_DST_COLOR` src factor → natural soft saturation as pixel fills up
+- **Analytical glow**: replaced `texture(sampler, coord).r` with `dot(center,center)*8.16` quadratic — zero bandwidth
+- **No sqrt in fragment**: `length()` replaced by `dot()`, `smoothstep` replaced by `clamp(1-d², 0,1)²`
+- **Early discard**: `if (d >= 1.0) discard` saves ROP for ~50% of fragments outside the point
+- **Brightness point size**: `gl_PointSize *= inBrightness` → dim particles cover fewer pixels
+- Perf: 100K 1955→3753 (+92%), 1M 889→1734 (+95%), 5M 371→535 (+44%)
+- **Commit**: (pending)
+
 ## Known Issues
 - HDR output not visible on virtual display (Xvfb) — requires physical HDR monitor
 - Windows build not yet tested
