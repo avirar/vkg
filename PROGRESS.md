@@ -122,7 +122,7 @@
 - Titlebar shows "HDR on/off" status
 - Screenshot/debug buffer handles half-float format (IEEE 754 h2f conversion)
 - No shader changes needed (scRGB driver auto-converts linear float → display nits)
-- **Commit**: (pending)
+- **Commit**: `1cb13db`
 
 ## Known Issues
 - HDR output not visible on virtual display (Xvfb) — requires physical HDR monitor
