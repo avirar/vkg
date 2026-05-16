@@ -6,6 +6,7 @@
 Renderer::Renderer(Engine& engine) : m_engine(engine) {
     createCommandBuffers();
     createSunVertexBuffer();
+    createSunIndexBuffer();
 }
 
 void Renderer::createPipelines() {
@@ -21,6 +22,8 @@ Renderer::~Renderer() {
     vkDestroyPipelineLayout(m_engine.device(), m_sunPipelineLayout, nullptr);
     vkDestroyBuffer(m_engine.device(), m_sunVertexBuffer, nullptr);
     vkFreeMemory(m_engine.device(), m_sunVertexMemory, nullptr);
+    vkDestroyBuffer(m_engine.device(), m_sunIndexBuffer, nullptr);
+    vkFreeMemory(m_engine.device(), m_sunIndexMemory, nullptr);
     vkFreeCommandBuffers(m_engine.device(), m_engine.commandPool(),
                          (uint32_t)m_commandBuffers.size(), m_commandBuffers.data());
 }
@@ -73,6 +76,38 @@ void Renderer::createSunVertexBuffer() {
     vkFreeMemory(m_engine.device(), stagingMemory, nullptr);
 }
 
+void Renderer::createSunIndexBuffer() {
+    // Two triangles covering [-1,1] x [-1,1] quad
+    // Vertices: 0=(-1,-1), 1=(1,-1), 2=(-1,1), 3=(1,1)
+    uint16_t indices[] = {0, 1, 2, 2, 1, 3};
+    VkDeviceSize size = sizeof(indices);
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingMemory;
+    m_engine.createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBuffer, stagingMemory);
+
+    void* data;
+    vkMapMemory(m_engine.device(), stagingMemory, 0, size, 0, &data);
+    memcpy(data, indices, size);
+    vkUnmapMemory(m_engine.device(), stagingMemory);
+
+    m_engine.createBuffer(size,
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        m_sunIndexBuffer, m_sunIndexMemory);
+
+    VkCommandBuffer cmd = m_engine.beginSingleTimeCommands();
+    VkBufferCopy copyRegion{};
+    copyRegion.size = size;
+    vkCmdCopyBuffer(cmd, stagingBuffer, m_sunIndexBuffer, 1, &copyRegion);
+    m_engine.endSingleTimeCommands(cmd);
+
+    vkDestroyBuffer(m_engine.device(), stagingBuffer, nullptr);
+    vkFreeMemory(m_engine.device(), stagingMemory, nullptr);
+}
+
 void Renderer::createSunPipeline() {
     auto vertCode = readFile("shaders/sun.vert.spv");
     auto fragCode = readFile("shaders/sun.frag.spv");
@@ -109,7 +144,7 @@ void Renderer::createSunPipeline() {
 
     VkPipelineInputAssemblyStateCreateInfo ias{};
     ias.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    ias.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+    ias.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
     VkPipelineViewportStateCreateInfo vs{};
     vs.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -386,9 +421,10 @@ void Renderer::drawFrame(float sinRot, float cosRot,
 
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &m_sunVertexBuffer, &offset);
+        vkCmdBindIndexBuffer(cmd, m_sunIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
         // 7 layers matching original (glg.c:2377-2485): 0.20, 0.08, 0.04, 0.02, 0.02, 0.01, 0.01
-        float baseSize = 0.20f * aspectX; // size relative to aspect ratio
+        float baseSize = 0.20f * aspectX;
         SunPushConstants spc{};
         spc.centerX = sunScrX;
         spc.centerY = sunScrY;
@@ -398,7 +434,47 @@ void Renderer::drawFrame(float sinRot, float cosRot,
         spc.alpha = 0.25f;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
-        vkCmdDraw(cmd, 4, 1, 0, 0);
+        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+
+        // Layer 2: 0.08
+        spc.scale = baseSize * 0.4f;
+        spc.alpha = 0.35f;
+        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                           0, sizeof(spc), &spc);
+        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+
+        // Layer 3: 0.04
+        spc.scale *= 0.5f;
+        spc.alpha = 0.45f;
+        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                           0, sizeof(spc), &spc);
+        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+
+        // Layer 4: 0.02
+        spc.scale *= 0.5f;
+        spc.alpha = 0.55f;
+        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                           0, sizeof(spc), &spc);
+        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+
+        // Layer 5: same size
+        spc.alpha = 0.65f;
+        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                           0, sizeof(spc), &spc);
+        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+
+        // Layer 6: 0.01
+        spc.scale *= 0.5f;
+        spc.alpha = 0.80f;
+        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                           0, sizeof(spc), &spc);
+        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+
+        // Layer 7: same size
+        spc.alpha = 1.0f;
+        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                           0, sizeof(spc), &spc);
+        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 
         // Layer 2: 0.08
         spc.scale = baseSize * 0.4f;

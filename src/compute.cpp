@@ -277,16 +277,24 @@ void Compute::dispatch(VkCommandBuffer cmd) {
     uint32_t workgroups = (m_particleCount + 255) / 256;
     vkCmdDispatch(cmd, workgroups, 1, 1);
 
-    // Barrier: compute writes → vertex shader reads
-    VkMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+    // Buffer-specific barrier: compute writes → vertex attribute reads
+    VkBufferMemoryBarrier bufBarrier{};
+    bufBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    bufBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    bufBarrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+    bufBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufBarrier.buffer = m_particleBuffers[m_outputIndex];
+    bufBarrier.offset = 0;
+    bufBarrier.size = VK_WHOLE_SIZE;
 
     vkCmdPipelineBarrier(cmd,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
-        0, 1, &barrier, 0, nullptr, 0, nullptr);
+        0,
+        0, nullptr,
+        1, &bufBarrier,
+        0, nullptr);
 
     // Toggle active set for next frame
     m_activeSet = 1 - m_activeSet;

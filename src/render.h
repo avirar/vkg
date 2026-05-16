@@ -36,6 +36,7 @@ private:
     void createGraphicsPipeline();
     void createSunPipeline();
     void createSunVertexBuffer();
+    void createSunIndexBuffer();
 
     Engine& m_engine;
     Compute* m_compute = nullptr;
@@ -50,6 +51,8 @@ private:
     VkPipeline m_sunPipeline = VK_NULL_HANDLE;
     VkBuffer m_sunVertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_sunVertexMemory = VK_NULL_HANDLE;
+    VkBuffer m_sunIndexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_sunIndexMemory = VK_NULL_HANDLE;
 
     std::vector<VkCommandBuffer> m_commandBuffers;
 };
