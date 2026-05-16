@@ -145,7 +145,7 @@
 - Command buffer index wrapped via `m_currentFrame % size`
 - Baseline: 1000→6246 FPS, 100K→1940, 500K→593, 1M→336, 2M→179, 5M→97
 - `benchmark.sh` for automated multi-count testing
-- **Commit**: (pending)
+- **Commit**: `047fdb8`
 
 ## Known Issues
 - HDR output not visible on virtual display (Xvfb) — requires physical HDR monitor
