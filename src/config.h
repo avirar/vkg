@@ -10,11 +10,14 @@ struct Config {
     float pointScale = 1.0f;
     bool autoPointScale = true;
 
-    std::string hypercolorMode = "color"; // "off", "color", "brightness"
+    std::string hypercolorVelocityMode = "color"; // "off", "color", "brightness"
+    std::string hypercolorDistanceMode = "brightness"; // "off", "color", "brightness"
     float hyperVelocityIntensity = 8.0f;
-    float hyperDistanceIntensity = 0.0f;
-    float hyperLoR = 1.0f, hyperLoG = 0.19f, hyperLoB = 0.065f;
-    float hyperHiR = 0.6f, hyperHiG = 0.8f, hyperHiB = 1.0f;
+    float hyperDistanceIntensity = 4.0f;
+    float hyperVelLoR = 1.0f, hyperVelLoG = 0.19f, hyperVelLoB = 0.065f;
+    float hyperVelHiR = 0.6f, hyperVelHiG = 0.8f, hyperVelHiB = 1.0f;
+    float hyperDistLoR = 1.0f, hyperDistLoG = 0.19f, hyperDistLoB = 0.065f;
+    float hyperDistHiR = 0.6f, hyperDistHiG = 0.8f, hyperDistHiB = 1.0f;
 
     bool hdr = true;
     float hdrMaxLuminance = 1000.0f;

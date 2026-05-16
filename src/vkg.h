@@ -31,9 +31,10 @@ struct Particle {
     float vel_x, vel_y, vel_z;
     float screen_x, screen_y;
     float brightness;
-    float hue;
+    float velHue;
+    float distHue;
 };
-static_assert(sizeof(Particle) == 40, "Particle must be 40 bytes");
+static_assert(sizeof(Particle) == 44, "Particle must be 44 bytes");
 
 std::vector<char> readFile(const std::string& filename);
 

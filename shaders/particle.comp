@@ -7,7 +7,8 @@ struct Particle {
     float vel_x, vel_y, vel_z;
     float screen_x, screen_y;
     float brightness;
-    float hue;
+    float velHue;
+    float distHue;
 };
 
 layout(std430, binding = 0) readonly buffer ParticleBufferIn {
@@ -114,11 +115,12 @@ void main() {
     }
     p.brightness = brightness;
 
-    // Dual hypercolor: velocity + distance to nearest singularity
+    // Raw hypercolor factors (mode applied in fragment shader)
     float velMagSq = p.vel_x*p.vel_x + p.vel_y*p.vel_y + p.vel_z*p.vel_z;
     float velF = clamp(velMagSq * 100.0, 0.0, 1.0);
     float distF = clamp(1.0 / (nearestDistSq + 0.001), 0.0, 1.0);
-    p.hue = clamp(velF * pc.velocityIntensity + distF * pc.distanceIntensity, 0.0, 1.0);
+    p.velHue = clamp(velF * pc.velocityIntensity, 0.0, 1.0);
+    p.distHue = clamp(distF * pc.distanceIntensity, 0.0, 1.0);
 
     particlesOut[idx] = p;
 }

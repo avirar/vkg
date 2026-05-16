@@ -1,16 +1,20 @@
 #version 450
 
 layout(location = 0) in float fragBrightness;
-layout(location = 1) in float fragHue;
+layout(location = 1) in float fragVelHue;
+layout(location = 2) in float fragDistHue;
 layout(location = 0) out vec4 outColor;
 
 layout(push_constant) uniform ParticlePush {
     float viewportHeight;
     float aspectY;
     float pointSizeMult;
-    uint mode;
-    float loR, loG, loB;
-    float hiR, hiG, hiB;
+    uint velMode;
+    uint distMode;
+    float velLoR, velLoG, velLoB;
+    float velHiR, velHiG, velHiB;
+    float distLoR, distLoG, distLoB;
+    float distHiR, distHiG, distHiB;
 } pc;
 
 void main() {
@@ -21,15 +25,23 @@ void main() {
     float falloff = 1.0 - d;
     falloff = falloff * falloff;
 
+    // Step 1: velocity effect
     vec3 color;
-    if (pc.mode == 2u) {
-        float boost = 1.0 + fragHue;
-        color = vec3(pc.loR, pc.loG, pc.loB) * boost;
-    } else if (pc.mode == 1u) {
-        color = mix(vec3(pc.loR, pc.loG, pc.loB),
-                    vec3(pc.hiR, pc.hiG, pc.hiB), fragHue);
+    if (pc.velMode == 2u) {
+        float boost = 1.0 + fragVelHue;
+        color = vec3(pc.velLoR, pc.velLoG, pc.velLoB) * boost;
+    } else if (pc.velMode == 1u) {
+        color = mix(vec3(pc.velLoR, pc.velLoG, pc.velLoB),
+                    vec3(pc.velHiR, pc.velHiG, pc.velHiB), fragVelHue);
     } else {
-        color = vec3(pc.loR, pc.loG, pc.loB);
+        color = vec3(pc.velLoR, pc.velLoG, pc.velLoB);
+    }
+
+    // Step 2: distance effect (applied on top)
+    if (pc.distMode == 2u) {
+        color *= (1.0 + fragDistHue);
+    } else if (pc.distMode == 1u) {
+        color = mix(color, vec3(pc.distHiR, pc.distHiG, pc.distHiB), fragDistHue);
     }
 
     float vis = falloff * fragBrightness;

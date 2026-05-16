@@ -266,7 +266,7 @@ void Renderer::createGraphicsPipeline() {
     bindDesc.stride = sizeof(Particle);
     bindDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    VkVertexInputAttributeDescription attrDescs[3]{};
+    VkVertexInputAttributeDescription attrDescs[4]{};
     attrDescs[0].binding = 0;
     attrDescs[0].location = 0;
     attrDescs[0].format = VK_FORMAT_R32G32_SFLOAT;
@@ -280,13 +280,18 @@ void Renderer::createGraphicsPipeline() {
     attrDescs[2].binding = 0;
     attrDescs[2].location = 2;
     attrDescs[2].format = VK_FORMAT_R32_SFLOAT;
-    attrDescs[2].offset = offsetof(Particle, hue);
+    attrDescs[2].offset = offsetof(Particle, velHue);
+
+    attrDescs[3].binding = 0;
+    attrDescs[3].location = 3;
+    attrDescs[3].format = VK_FORMAT_R32_SFLOAT;
+    attrDescs[3].offset = offsetof(Particle, distHue);
 
     VkPipelineVertexInputStateCreateInfo vis{};
     vis.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vis.vertexBindingDescriptionCount = 1;
     vis.pVertexBindingDescriptions = &bindDesc;
-    vis.vertexAttributeDescriptionCount = 3;
+    vis.vertexAttributeDescriptionCount = 4;
     vis.pVertexAttributeDescriptions = attrDescs;
 
     VkPipelineInputAssemblyStateCreateInfo ias{};
@@ -763,14 +768,22 @@ void Renderer::drawFrame(const SimState& state, float aspectX, float aspectY) {
 
 void Renderer::setParticleColors(const Config& cfg) {
     m_ppc = {};
-    if (cfg.hypercolorMode == "brightness")
-        m_ppc.mode = 2u;
-    else if (cfg.hypercolorMode == "color")
-        m_ppc.mode = 1u;
+    if (cfg.hypercolorVelocityMode == "brightness")
+        m_ppc.velMode = 2u;
+    else if (cfg.hypercolorVelocityMode == "color")
+        m_ppc.velMode = 1u;
     else
-        m_ppc.mode = 0u;
-    m_ppc.loR = cfg.hyperLoR; m_ppc.loG = cfg.hyperLoG; m_ppc.loB = cfg.hyperLoB;
-    m_ppc.hiR = cfg.hyperHiR; m_ppc.hiG = cfg.hyperHiG; m_ppc.hiB = cfg.hyperHiB;
+        m_ppc.velMode = 0u;
+    if (cfg.hypercolorDistanceMode == "brightness")
+        m_ppc.distMode = 2u;
+    else if (cfg.hypercolorDistanceMode == "color")
+        m_ppc.distMode = 1u;
+    else
+        m_ppc.distMode = 0u;
+    m_ppc.velLoR = cfg.hyperVelLoR; m_ppc.velLoG = cfg.hyperVelLoG; m_ppc.velLoB = cfg.hyperVelLoB;
+    m_ppc.velHiR = cfg.hyperVelHiR; m_ppc.velHiG = cfg.hyperVelHiG; m_ppc.velHiB = cfg.hyperVelHiB;
+    m_ppc.distLoR = cfg.hyperDistLoR; m_ppc.distLoG = cfg.hyperDistLoG; m_ppc.distLoB = cfg.hyperDistLoB;
+    m_ppc.distHiR = cfg.hyperDistHiR; m_ppc.distHiG = cfg.hyperDistHiG; m_ppc.distHiB = cfg.hyperDistHiB;
 }
 
 void Renderer::debugDump(VkFence fence) {
