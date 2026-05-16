@@ -324,7 +324,8 @@ void Renderer::createGraphicsPipeline() {
 void Renderer::drawFrame(float sinRot, float cosRot,
                           float singX, float singY, float singZ,
                           float aspectX, float aspectY) {
-    VkCommandBuffer cmd = m_commandBuffers[m_currentFrame];
+    uint32_t frameIdx = m_engine.currentFrame();
+    VkCommandBuffer cmd = m_commandBuffers[frameIdx];
 
     VkCommandBufferBeginInfo bi{};
     bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -469,6 +470,7 @@ void Renderer::drawFrame(float sinRot, float cosRot,
     si.pSignalSemaphores = &signalSem;
 
     vkResetFences(m_engine.device(), 1, &fence);
-    if (vkQueueSubmit(m_engine.graphicsQueue(), 1, &si, fence) != VK_SUCCESS)
-        throw std::runtime_error("Failed to submit draw command buffer");
+    VkResult result = vkQueueSubmit(m_engine.graphicsQueue(), 1, &si, fence);
+    if (result != VK_SUCCESS)
+        throw std::runtime_error("Failed to submit draw command buffer: code " + std::to_string(result));
 }

@@ -8,7 +8,7 @@
 #include <fstream>
 #include <stdexcept>
 
-constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+constexpr int MAX_FRAMES_IN_FLIGHT = 3;
 constexpr int MAX_PARTICLES = 32768;
 constexpr int REINIT_COUNTDOWN_START = 2048;
 

@@ -82,9 +82,8 @@ Engine::~Engine() {
     cleanupSwapChain();
     vkDestroyCommandPool(m_device, m_commandPool, nullptr);
     vkDestroyDevice(m_device, nullptr);
-    if (ENABLE_VALIDATION) {
-        // debug messenger destroyed by instance destruction
-    }
+    if (m_debugMessenger)
+        DestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
     vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
     vkDestroyInstance(m_instance, nullptr);
 }
@@ -134,6 +133,19 @@ void Engine::createInstance() {
         else if (res == VK_ERROR_LAYER_NOT_PRESENT) err += "layer not present";
         else err += "code " + std::to_string(res);
         throw std::runtime_error(err);
+    }
+
+    // Create debug messenger
+    if (validationAvailable) {
+        VkDebugUtilsMessengerCreateInfoEXT dci{};
+        dci.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        dci.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                              VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        dci.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                          VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                          VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        dci.pfnUserCallback = debugCallback;
+        CreateDebugUtilsMessengerEXT(m_instance, &dci, nullptr, &m_debugMessenger);
     }
 }
 
@@ -251,7 +263,7 @@ VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>
 
 VkPresentModeKHR choosePresentMode(const std::vector<VkPresentModeKHR>& modes) {
     for (const auto& m : modes)
-        if (m == VK_PRESENT_MODE_MAILBOX_KHR) return m;
+        if (m == VK_PRESENT_MODE_FIFO_KHR) return m;
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 

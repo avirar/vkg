@@ -28,6 +28,7 @@ public:
     VkFence currentFence() const { return m_inFlightFences[m_currentFrame]; }
     VkSemaphore imageAvailableSemaphore() const { return m_imageAvailableSemaphores[m_currentFrame]; }
     VkSemaphore renderFinishedSemaphore() const { return m_renderFinishedSemaphores[m_currentFrame]; }
+    uint32_t currentFrame() const { return m_currentFrame; }
     void setFramebufferResized() { m_framebufferResized = true; }
 
     VkCommandBuffer beginSingleTimeCommands();
@@ -59,6 +60,7 @@ private:
     VkDevice m_device = VK_NULL_HANDLE;
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
     VkQueue m_computeQueue = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
 
     VkSwapchainKHR m_swapChain = VK_NULL_HANDLE;
     VkFormat m_swapChainFormat{};

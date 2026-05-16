@@ -54,7 +54,8 @@ int main() {
         renderer.setTextures(&textures);
 
         Audio audio;
-        audio.load("glg.wav");
+        // audio disabled by default; uncomment to enable:
+        // audio.load("glg.wav");
 
         auto lastTime = std::chrono::high_resolution_clock::now();
         bool paused = false;

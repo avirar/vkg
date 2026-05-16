@@ -47,5 +47,4 @@ private:
     VkDeviceMemory m_sunVertexMemory = VK_NULL_HANDLE;
 
     std::vector<VkCommandBuffer> m_commandBuffers;
-    uint32_t m_currentFrame = 0;
 };
