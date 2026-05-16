@@ -2,6 +2,7 @@
 
 #include "engine.h"
 #include <vector>
+#include <algorithm>
 
 struct ComputePushConstants {
     float dt;
@@ -40,7 +41,7 @@ public:
 
     VkBuffer outputBuffer() const { return m_particleBuffers[m_outputIndex]; }
     uint32_t particleCount() const { return m_particleCount; }
-    void forceParticleCount(uint32_t n) { m_particleCount = n; m_push.particleCount = n; }
+    void forceParticleCount(uint32_t n) { m_particleCount = std::min(n, m_maxParticles); m_push.particleCount = m_particleCount; }
     void setHyperIntensity(float hi) { m_push.hyperIntensity = hi; }
     void debugPlaceParticle(VkCommandBuffer cmd, float screenX, float screenY, float brightness);
 
@@ -66,6 +67,7 @@ private:
     std::vector<VkDeviceMemory> m_particleBufferMemories;
 
     uint32_t m_particleCount = 0;
+    uint32_t m_maxParticles = 0;
     uint32_t m_outputIndex = 0; // which buffer is the current output (0 or 1)
     uint32_t m_activeSet = 0;   // 0 = use AB set, 1 = use BA set
 

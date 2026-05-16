@@ -23,6 +23,7 @@ public:
     void setTargetFps(int fps);
 
     const SimState& state() const { return m_state; }
+    uint32_t maxParticles() const { return m_state.particleCount; }
 
 private:
     void updateCamera(float dt);
@@ -30,6 +31,7 @@ private:
     void adjustParticleCount(float dt);
 
     SimState m_state;
+    uint32_t m_maxCount = 0;
     std::mt19937 m_rng;
     std::uniform_int_distribution<int> m_dist{0, 1000};
     float m_targetSpeed = 0.01f;
@@ -41,5 +43,4 @@ private:
     static constexpr float CAMERA_DIST = 1.5f;
     static constexpr float CAMERA_OFFSET = 0.6f;
     static constexpr uint32_t MIN_PARTICLES = 2;
-    static constexpr uint32_t MAX_PARTICLES = 32768;
 };

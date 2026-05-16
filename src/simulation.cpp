@@ -4,6 +4,7 @@
 
 Simulation::Simulation(uint32_t initialParticles) : m_rng(42) {
     m_state.particleCount = initialParticles;
+    m_maxCount = initialParticles;
 }
 
 void Simulation::update(float dt) {
@@ -84,13 +85,13 @@ void Simulation::adjustParticleCount(float dt) {
     float ratio = std::sqrt(m_targetSpeed / dt);
     float newCount = ratio * (float)m_state.particleCount;
 
-    if (newCount <= (float)MAX_PARTICLES) {
+    if (newCount <= (float)m_maxCount) {
         if (newCount >= (float)MIN_PARTICLES) {
             m_state.particleCount = (uint32_t)std::round(newCount);
         } else {
             m_state.particleCount = MIN_PARTICLES;
         }
     } else {
-        m_state.particleCount = MAX_PARTICLES;
+        m_state.particleCount = m_maxCount;
     }
 }

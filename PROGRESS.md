@@ -124,6 +124,17 @@
 - No shader changes needed (scRGB driver auto-converts linear float → display nits)
 - **Commit**: `1cb13db`
 
+## Milestone 19 — Dynamic Particle Count (No Hardcap) ✅
+- Removed compile-time `MAX_PARTICLES = 32768` hard limit
+- GPU buffers allocated based on actual requested particle count
+- `m_maxParticles` in Compute caps `forceParticleCount` at buffer size
+- Simulation `m_maxCount` replaces static `MAX_PARTICLES`
+- Simulation → Compute sync each frame (adjuster changes flow through)
+- Titlebar shows `compute.particleCount()` (what's actually rendered)
+- CLI `--particles` no longer capped at 32768
+- Tested up to 1M particles — no validation errors, no buffer overruns
+- **Commit**: (pending)
+
 ## Known Issues
 - HDR output not visible on virtual display (Xvfb) — requires physical HDR monitor
 - Windows build not yet tested

@@ -39,7 +39,6 @@ int main(int argc, char** argv) {
         } else if (std::strcmp(argv[i], "--particles") == 0 && i + 1 < argc) {
             cfg.particles = std::atoi(argv[++i]);
             if (cfg.particles < 2) cfg.particles = 2;
-            if (cfg.particles > 32768) cfg.particles = 32768;
         } else if (std::strcmp(argv[i], "--fullscreen") == 0) {
             startFullscreen = true;
         } else if (std::strcmp(argv[i], "--point-scale") == 0 && i + 1 < argc) {
@@ -50,7 +49,7 @@ int main(int argc, char** argv) {
             std::cout << "vkg — Vulkan GL Gravitation screensaver\n"
                       << "Usage: vkg [options]\n"
                       << "  --debug          Low-res 80x60 debug mode, 1 frame\n"
-                      << "  --particles N    Number of particles (2-32768, default: 1000)\n"
+                      << "  --particles N    Number of particles (min: 2, default: 1000)\n"
                       << "  --point-scale F  Particle size multiplier (0.1-10.0, default: 1.0)\n"
                       << "  --fullscreen     Start in fullscreen mode\n"
                       << "  --help, -h       Show this help\n"
@@ -170,6 +169,9 @@ int main(int argc, char** argv) {
                 sim.update(dt);
             }
 
+            // Sync particle count from simulation to compute
+            compute.forceParticleCount(sim.state().particleCount);
+
             // Feed simulation state to compute shader
             const auto& s = sim.state();
             float orbitRad = s.orbitAngle * 3.14159265f / 180.0f;
@@ -197,7 +199,7 @@ int main(int argc, char** argv) {
             float fpsElapsed = std::chrono::duration_cast<std::chrono::duration<float>>(fpsNow - fpsLastTime).count();
             if (fpsElapsed >= 1.0f) {
                 int fps = (int)std::round(fpsFrames / fpsElapsed);
-                glfwSetWindowTitle(window, ("GL Gravitation Vulkan - " + std::to_string(fps) + " FPS | " + std::to_string(sim.state().particleCount) + " particles | HDR " + (engine.hdrEnabled() ? "on" : "off")).c_str());
+                glfwSetWindowTitle(window, ("GL Gravitation Vulkan - " + std::to_string(fps) + " FPS | " + std::to_string(compute.particleCount()) + " particles | HDR " + (engine.hdrEnabled() ? "on" : "off")).c_str());
                 fpsFrames = 0;
                 fpsLastTime = fpsNow;
             }

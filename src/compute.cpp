@@ -23,6 +23,7 @@ Compute::~Compute() {
 
 void Compute::init(uint32_t particleCount) {
     m_particleCount = particleCount;
+    m_maxParticles = particleCount;
     createDescriptorSetLayout();
     createPipelineLayout();
     createPipeline();
@@ -92,7 +93,7 @@ void Compute::createPipeline() {
 }
 
 void Compute::createParticleBuffers() {
-    VkDeviceSize bufferSize = MAX_PARTICLES * sizeof(Particle);
+    VkDeviceSize bufferSize = m_maxParticles * sizeof(Particle);
     m_particleBuffers.resize(2);
     m_particleBufferMemories.resize(2);
 
@@ -135,7 +136,7 @@ void Compute::createDescriptorSets() {
     m_descriptorSetAB = sets[0]; // binding0=buffer[0], binding1=buffer[1]
     m_descriptorSetBA = sets[1]; // binding0=buffer[1], binding1=buffer[0]
 
-    VkDeviceSize bufSize = MAX_PARTICLES * sizeof(Particle);
+    VkDeviceSize bufSize = m_maxParticles * sizeof(Particle);
 
     // Write set AB: binding 0 -> buffer[0], binding 1 -> buffer[1]
     {
@@ -199,7 +200,7 @@ void Compute::createDescriptorSets() {
 }
 
 void Compute::initializeParticles() {
-    VkDeviceSize bufferSize = MAX_PARTICLES * sizeof(Particle);
+    VkDeviceSize bufferSize = m_maxParticles * sizeof(Particle);
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingMemory;
@@ -215,7 +216,7 @@ void Compute::initializeParticles() {
     std::mt19937 rng(42);
     std::uniform_real_distribution<float> dist(-0.15f, 0.15f);
 
-    for (uint32_t i = 0; i < MAX_PARTICLES; i++) {
+    for (uint32_t i = 0; i < m_maxParticles; i++) {
         particles[i].pos_x = dist(rng);
         particles[i].pos_y = dist(rng);
         particles[i].pos_z = dist(rng);
