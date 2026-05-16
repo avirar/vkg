@@ -66,6 +66,8 @@ Config loadConfig(const std::string& path) {
             else if (key == "hdr") cfg.hdr = !(val == "false" || val == "0" || val == "no");
             else if (key == "hdr_max_luminance") cfg.hdrMaxLuminance = (float)std::atof(val.c_str());
             else if (key == "singularity_count") cfg.singularityCount = std::atoi(val.c_str());
+            else if (key == "blend_alpha_scale") cfg.blendAlphaScale = (float)std::atof(val.c_str());
+            else if (key == "color_cap") cfg.colorCap = (float)std::atof(val.c_str());
             else if (key == "osd") cfg.osdEnabled = (val == "true" || val == "1" || val == "yes");
         }
     }

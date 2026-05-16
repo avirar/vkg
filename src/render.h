@@ -25,6 +25,8 @@ struct ParticlePushConstants {
     float velHiR, velHiG, velHiB;
     float distLoR, distLoG, distLoB;
     float distHiR, distHiG, distHiB;
+    float blendAlphaScale;
+    float colorCap;
 };
 
 class Renderer {

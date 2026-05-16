@@ -15,6 +15,8 @@ layout(push_constant) uniform ParticlePush {
     float velHiR, velHiG, velHiB;
     float distLoR, distLoG, distLoB;
     float distHiR, distHiG, distHiB;
+    float blendAlphaScale;
+    float colorCap;
 } pc;
 
 layout(location = 0) out float fragBrightness;

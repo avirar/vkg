@@ -24,6 +24,9 @@ struct Config {
 
     int singularityCount = 1;
 
+    float blendAlphaScale = 0.4f;
+    float colorCap = 1.0f;
+
     bool osdEnabled = false;
 
     static Config load();

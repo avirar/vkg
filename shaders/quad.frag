@@ -15,6 +15,8 @@ layout(push_constant) uniform ParticlePush {
     float velHiR, velHiG, velHiB;
     float distLoR, distLoG, distLoB;
     float distHiR, distHiG, distHiB;
+    float blendAlphaScale;
+    float colorCap;
 } pc;
 
 void main() {
@@ -45,5 +47,7 @@ void main() {
     }
 
     float vis = falloff * fragBrightness;
-    outColor = vec4(color * vis, vis);
+    vec3 cclamped = min(color, pc.colorCap);
+    float alpha = vis * pc.blendAlphaScale;
+    outColor = vec4(cclamped * vis, alpha);
 }

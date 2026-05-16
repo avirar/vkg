@@ -787,6 +787,8 @@ void Renderer::setParticleColors(const Config& cfg) {
     m_ppc.velHiR = cfg.hyperVelHiR; m_ppc.velHiG = cfg.hyperVelHiG; m_ppc.velHiB = cfg.hyperVelHiB;
     m_ppc.distLoR = cfg.hyperDistLoR; m_ppc.distLoG = cfg.hyperDistLoG; m_ppc.distLoB = cfg.hyperDistLoB;
     m_ppc.distHiR = cfg.hyperDistHiR; m_ppc.distHiG = cfg.hyperDistHiG; m_ppc.distHiB = cfg.hyperDistHiB;
+    m_ppc.blendAlphaScale = cfg.blendAlphaScale;
+    m_ppc.colorCap = cfg.colorCap;
 }
 
 void Renderer::debugDump(VkFence fence) {
