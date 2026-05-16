@@ -29,8 +29,30 @@ static bool keyPressed(GLFWwindow* window, int key, std::unordered_map<int, bool
 int main(int argc, char** argv) {
     Config cfg = Config::load();
 
-    bool debugMode = (argc > 1 && std::strcmp(argv[1], "--debug") == 0);
+    bool debugMode = false;
     bool startFullscreen = cfg.fullscreen;
+
+    // CLI argument parsing
+    for (int i = 1; i < argc; i++) {
+        if (std::strcmp(argv[i], "--debug") == 0) {
+            debugMode = true;
+        } else if (std::strcmp(argv[i], "--particles") == 0 && i + 1 < argc) {
+            cfg.particles = std::atoi(argv[++i]);
+            if (cfg.particles < 2) cfg.particles = 2;
+            if (cfg.particles > 32768) cfg.particles = 32768;
+        } else if (std::strcmp(argv[i], "--fullscreen") == 0) {
+            startFullscreen = true;
+        } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
+            std::cout << "vkg — Vulkan GL Gravitation screensaver\n"
+                      << "Usage: vkg [options]\n"
+                      << "  --debug        Low-res 80x60 debug mode, 1 frame\n"
+                      << "  --particles N  Number of particles (2-32768, default: 1000)\n"
+                      << "  --fullscreen   Start in fullscreen mode\n"
+                      << "  --help, -h     Show this help\n"
+                      << "\nConfig file: vkg.ini (auto-loaded from current directory)\n";
+            return 0;
+        }
+    }
 
     int winW = debugMode ? 80 : 800;
     int winH = debugMode ? 60 : 600;
@@ -60,6 +82,7 @@ int main(int argc, char** argv) {
         g_engine = &engine;
 
         Simulation sim(debugMode ? 1 : (uint32_t)cfg.particles);
+        if (cfg.targetFps > 0) sim.setTargetFps(cfg.targetFps);
         Compute compute(engine);
         compute.init(sim.state().particleCount);
 

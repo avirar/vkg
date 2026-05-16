@@ -56,6 +56,13 @@
 ## Milestone 10 — Config File ✅
 - vkg.ini parser: particle count, fullscreen mode, target FPS
 - Config auto-loaded from current directory on startup
+- **Commit**: `d7652dd`
+
+## Milestone 11 — CLI Flags + FPS Tuning ✅
+- `--particles N` CLI flag (overrides config)
+- `--fullscreen` flag
+- `--help` / `-h` usage info
+- `target_fps` option drives particle count auto-adjuster
 - **Commit**: (pending)
 
 ## Known Issues

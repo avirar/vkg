@@ -16,6 +16,11 @@ void Simulation::update(float dt) {
     m_state.accumulatedTime += dt;
 }
 
+void Simulation::setTargetFps(int fps) {
+    if (fps > 0)
+        m_targetSpeed = 1.0f / (float)fps;
+}
+
 void Simulation::resize(uint32_t width, uint32_t height) {
     // Aspect ratio: larger dimension = 1.0, smaller = ratio
     if (width >= height) {
@@ -75,7 +80,7 @@ void Simulation::adjustParticleCount(float dt) {
     if (dt <= 0.0f) return;
 
     // glg.c:2633-2646: sqrt(target_speed / actual_speed) * current_count
-    float ratio = std::sqrt(TARGET_SPEED / dt);
+    float ratio = std::sqrt(m_targetSpeed / dt);
     float newCount = ratio * (float)m_state.particleCount;
 
     if (newCount <= (float)MAX_PARTICLES) {
