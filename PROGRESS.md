@@ -228,3 +228,51 @@
 - No runtime Windows testing yet (compilation verified via cross-compile)
 - Multi-monitor support not implemented (single fullscreen window on primary monitor)
 - `ShowCursor(FALSE)` only hides cursor on primary monitor
+
+## Milestone 29 — Merge win → master ✅
+- Fast-forward merge: `win` branch (4 commits ahead) → `master`
+- Single branch, two build configs: Linux (`cmake -B build`) vs Windows cross-compile (`cmake -B build-mingw -DCMAKE_TOOLCHAIN_FILE=...`)
+- No conflicts, Linux build unaffected, `#ifdef _WIN32` guards intact
+- **Commit**: (fast-forward merge)
+
+## Milestone 30 — Dual Independent Hypercolor ✅
+- Config: `hyper_velocity_intensity` (was `hyper_intensity`) + `hyper_distance_intensity` (new, default 0)
+- Old `hyper_intensity` key still parsed → maps to velocity for backward compat
+- Compute shader: `hue = clamp(velF * velIntensity + distF * distIntensity, 0, 1)`
+  - velF = `clamp(velMagSq * 100.0, 0, 1)` — particle speed factor
+  - distF = `clamp(1.0 / (distSq + 0.001), 0, 1)` — proximity to singularity
+- Fragment shader simplified: `hyperIntensity` removed from push constants; uses hue directly
+  - Color mode: `mix(loColor, hiColor, hue)` (unchanged)
+  - Brightness mode: `boost = 1.0 + hue` (was `1.0 + hue * hyperIntensity` — double-application removed)
+- Push constant `hyperIntensity` → `velocityIntensity` + `distanceIntensity` (same total size)
+- **Commit**: `d958981`
+
+## Milestone 31 — Multiple Singularities (cap 8) ✅
+- `Singularity` struct: `{x, y, z, vx, vy, vz, pulsePhase}` — 7 floats
+- `SimState`: `std::array<Singularity, 8>` + `singularityCount` + `comX/Y/Z` (center of mass)
+- Each singularity: independent random walk, boundary bounce, unique pulse phase
+- Center of mass recomputed each frame for camera projection reference
+- GPU: SSBO binding 2 (`vec4 singPositions[8]`) for positions; `vkCmdUpdateBuffer` inline upload
+- Compute shader: force loop over `singCount` singularities, nearest distance for hypercolor
+- Sun rendering: per-singularity draw with unique `pulsePhase` offset for variety
+- Config: `singularity_count = 2` (range 1-8)
+- **Commit**: `d958981`
+
+## Milestone 32 — Dampened Particle Adjuster ✅
+- Replace instant `newCount = currentCount * sqrt(target/dt)` with EMA smoothing
+- `smoothed = currentCount * 0.7 + target * 0.3` → prevents exponential collapse on slow GPUs
+- Fixes 1M → 2 particles in ~20 frames bug observed on i5-6500 iGPU
+- **Commit**: `d958981`
+
+## Milestone 33 — OSD Overlay ✅
+- `stb_easy_font.h` (public domain, single-header) — bitmap font, zero dependencies
+- `osd.vert`/`osd.frag` shaders: pixel coords→NDC, RGBA passthrough
+- OSD pipeline: alpha-blend overlay, 512-character capacity, pre-generated index buffer
+- `--osd` CLI flag on Linux; renderer tracks FPS + particle count
+- Overlay drawn after particles, before end render pass
+- Cross-compiles for Windows, works on both platforms
+- **Commit**: `acddd7b`
+
+## Performance (current)
+- 100K: 4836 FPS | 500K: ~2325 FPS | 1M: ~1757 FPS (estimated, no regression)
+- From baseline (97→531 at 5M): 5.5x cumulative improvement
