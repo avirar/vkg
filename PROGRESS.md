@@ -175,7 +175,7 @@
 ## Milestone 24 — Tier 3 Misc Optimizations ✅
 - **P13**: Cleaned particle buffer usage flags (removed `VERTEX_BUFFER_BIT`, `TRANSFER_SRC_BIT` from physics-only buffers)
 - (P11 double fence was false flag — already correct; P10 sun instancing deferred; P12 batch init deferred)
-- **Commit**: (pending)
+- **Commit**: `40c8050`
 
 ## Known Issues
 - HDR output not visible on virtual display (Xvfb) — requires physical HDR monitor
