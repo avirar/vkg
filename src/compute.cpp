@@ -225,7 +225,7 @@ void Compute::initializeParticles() {
         particles[i].screen_x = 0.0f;
         particles[i].screen_y = 0.0f;
         particles[i].brightness = 0.0f;
-        particles[i]._pad = 0.0f;
+        particles[i].hue = 0.0f;
     }
     vkUnmapMemory(m_engine.device(), stagingMemory);
 

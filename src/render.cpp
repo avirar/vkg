@@ -259,7 +259,7 @@ void Renderer::createGraphicsPipeline() {
     bindDesc.stride = sizeof(Particle);
     bindDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    VkVertexInputAttributeDescription attrDescs[2]{};
+    VkVertexInputAttributeDescription attrDescs[3]{};
     attrDescs[0].binding = 0;
     attrDescs[0].location = 0;
     attrDescs[0].format = VK_FORMAT_R32G32_SFLOAT;
@@ -270,11 +270,16 @@ void Renderer::createGraphicsPipeline() {
     attrDescs[1].format = VK_FORMAT_R32_SFLOAT;
     attrDescs[1].offset = offsetof(Particle, brightness);
 
+    attrDescs[2].binding = 0;
+    attrDescs[2].location = 2;
+    attrDescs[2].format = VK_FORMAT_R32_SFLOAT;
+    attrDescs[2].offset = offsetof(Particle, hue);
+
     VkPipelineVertexInputStateCreateInfo vis{};
     vis.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vis.vertexBindingDescriptionCount = 1;
     vis.pVertexBindingDescriptions = &bindDesc;
-    vis.vertexAttributeDescriptionCount = 2;
+    vis.vertexAttributeDescriptionCount = 3;
     vis.pVertexAttributeDescriptions = attrDescs;
 
     VkPipelineInputAssemblyStateCreateInfo ias{};

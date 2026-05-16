@@ -7,7 +7,7 @@ struct Particle {
     float vel_x, vel_y, vel_z;
     float screen_x, screen_y;
     float brightness;
-    float _pad;
+    float hue;
 };
 
 layout(std430, binding = 0) readonly buffer ParticleBufferIn {
@@ -97,6 +97,9 @@ void main() {
         brightness = clamp(brightness, 0.0, 1.0);
     }
     p.brightness = brightness;
+
+    float velMag = sqrt(p.vel_x*p.vel_x + p.vel_y*p.vel_y + p.vel_z*p.vel_z);
+    p.hue = clamp(velMag * 8.0, 0.0, 1.0);
 
     particlesOut[idx] = p;
 }

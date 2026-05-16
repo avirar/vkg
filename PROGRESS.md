@@ -81,11 +81,17 @@
 - `sunPulse` in SimState oscillates 0.75–1.25 via sin(phase * 0.5)
 - All 7 sun layer alphas multiplied by sunPulse each frame
 - Creates gentle breathing effect on the singularity glow
+- **Commit**: `4eb6d3f`
+
+## Milestone 15 — Hypercolor Particles ✅
+- Renamed `_pad` field to `hue` in Particle struct
+- Hue computed from velocity magnitude in compute shader
+- Fragment shader interpolates orange→blue-white based on hue
+- Added vertex attribute location 2 for hue pipeline
 - **Commit**: (pending)
 
 ## Known Issues
-- Shader SPVs loaded relative to CWD
-- No validation layers on test system
-- Need Xvfb for headless testing
-- Particle count dynamic adjustment doesn't trigger buffer resize yet
 - Windows build not yet tested (CMake toolchain should work)
+- Audio currently disabled (commented out load call)
+- HDR not yet implemented
+- No indirect draw / GPU-driven particle count yet

@@ -32,7 +32,7 @@ struct Particle {
     float vel_x, vel_y, vel_z;
     float screen_x, screen_y;
     float brightness;
-    float _pad; // align to 16 bytes
+    float hue;
 };
 static_assert(sizeof(Particle) == 40, "Particle must be 40 bytes");
 
