@@ -20,7 +20,7 @@ private:
     void createImage(uint32_t w, uint32_t h, VkImage& image, VkDeviceMemory& memory);
     void createImageView(VkImage image, VkFormat format, VkImageView& view);
     void uploadTexture(VkImage image, uint32_t w, uint32_t h,
-                       const std::vector<uint8_t>& pixels);
+                       const uint8_t* pixels);
     void createSampler();
     void createDescriptorSet();
 

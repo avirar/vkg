@@ -1,4 +1,5 @@
 #include "textures.h"
+#include "texture_data.h"
 #include <cstring>
 #include <cmath>
 #include <vector>
@@ -64,7 +65,7 @@ void Textures::createImageView(VkImage image, VkFormat format, VkImageView& view
 }
 
 void Textures::uploadTexture(VkImage image, uint32_t w, uint32_t h,
-                              const std::vector<uint8_t>& pixels) {
+                              const uint8_t* pixels) {
     VkDeviceSize size = w * h * 4;
 
     VkBuffer stagingBuffer;
@@ -75,10 +76,9 @@ void Textures::uploadTexture(VkImage image, uint32_t w, uint32_t h,
 
     void* data;
     vkMapMemory(m_engine.device(), stagingMemory, 0, size, 0, &data);
-    memcpy(data, pixels.data(), size);
+    memcpy(data, pixels, size);
     vkUnmapMemory(m_engine.device(), stagingMemory);
 
-    // Transition image to transfer dst layout
     VkCommandBuffer cmd = m_engine.beginSingleTimeCommands();
 
     VkImageMemoryBarrier barrier{};
@@ -97,7 +97,6 @@ void Textures::uploadTexture(VkImage image, uint32_t w, uint32_t h,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-    // Copy staging to image
     VkBufferImageCopy region{};
     region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     region.imageSubresource.layerCount = 1;
@@ -106,7 +105,6 @@ void Textures::uploadTexture(VkImage image, uint32_t w, uint32_t h,
     vkCmdCopyBufferToImage(cmd, stagingBuffer, image,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-    // Transition to shader read layout
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -138,7 +136,6 @@ void Textures::createSampler() {
 }
 
 void Textures::createDescriptorSet() {
-    // Descriptor set layout
     VkDescriptorSetLayoutBinding binding{};
     binding.binding = 0;
     binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -154,7 +151,6 @@ void Textures::createDescriptorSet() {
                                     &m_descriptorSetLayout) != VK_SUCCESS)
         throw std::runtime_error("Failed to create texture descriptor set layout");
 
-    // Pool
     VkDescriptorPoolSize poolSize{};
     poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSize.descriptorCount = 2;
@@ -168,7 +164,6 @@ void Textures::createDescriptorSet() {
     if (vkCreateDescriptorPool(m_engine.device(), &pci, nullptr, &m_descriptorPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create texture descriptor pool");
 
-    // Allocate 2 sets
     std::vector<VkDescriptorSetLayout> layouts = {m_descriptorSetLayout, m_descriptorSetLayout};
     VkDescriptorSetAllocateInfo ai{};
     ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -183,7 +178,6 @@ void Textures::createDescriptorSet() {
     m_sunDescriptorSet = sets[0];
     m_particleDescriptorSet = sets[1];
 
-    // Write sun descriptor set
     {
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -201,7 +195,6 @@ void Textures::createDescriptorSet() {
         vkUpdateDescriptorSets(m_engine.device(), 1, &write, 0, nullptr);
     }
 
-    // Write particle descriptor set
     {
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -223,55 +216,17 @@ void Textures::createDescriptorSet() {
 void Textures::createProceduralTextures() {
     createSampler();
 
-    // 64×64 sun glow texture: soft radial gradient
+    // 64x64 sun glow texture — from original binary LA data
     {
-        uint32_t w = 64, h = 64;
-        std::vector<uint8_t> pixels(w * h * 4);
-        for (uint32_t y = 0; y < h; y++) {
-            for (uint32_t x = 0; x < w; x++) {
-                float fx = (float)x / (float)w - 0.5f;
-                float fy = (float)y / (float)h - 0.5f;
-                float dist = std::sqrt(fx * fx + fy * fy);
-                float glow = 1.0f - std::min(dist * 2.0f, 1.0f);
-                glow = glow * glow; // quadratic falloff
-
-                uint8_t val = (uint8_t)(glow * 255.0f);
-                size_t idx = (y * w + x) * 4;
-                pixels[idx + 0] = val; // R
-                pixels[idx + 1] = val; // G
-                pixels[idx + 2] = val; // B
-                pixels[idx + 3] = val; // A
-            }
-        }
-
-        createImage(w, h, m_sunTexture, m_sunTextureMemory);
-        uploadTexture(m_sunTexture, w, h, pixels);
+        createImage(SUN_TEX_W, SUN_TEX_H, m_sunTexture, m_sunTextureMemory);
+        uploadTexture(m_sunTexture, SUN_TEX_W, SUN_TEX_H, sunTextureData);
         createImageView(m_sunTexture, VK_FORMAT_R8G8B8A8_SRGB, m_sunTextureView);
     }
 
-    // 16×16 particle glow texture
+    // 16x16 particle glow texture — from original binary LA data
     {
-        uint32_t w = 16, h = 16;
-        std::vector<uint8_t> pixels(w * h * 4);
-        for (uint32_t y = 0; y < h; y++) {
-            for (uint32_t x = 0; x < w; x++) {
-                float fx = (float)x / (float)w - 0.5f;
-                float fy = (float)y / (float)h - 0.5f;
-                float dist = std::sqrt(fx * fx + fy * fy);
-                float glow = 1.0f - std::min(dist * 2.0f, 1.0f);
-                glow = glow * glow;
-
-                uint8_t val = (uint8_t)(glow * 255.0f);
-                size_t idx = (y * w + x) * 4;
-                pixels[idx + 0] = val;
-                pixels[idx + 1] = val;
-                pixels[idx + 2] = val;
-                pixels[idx + 3] = val;
-            }
-        }
-
-        createImage(w, h, m_particleTexture, m_particleTextureMemory);
-        uploadTexture(m_particleTexture, w, h, pixels);
+        createImage(PARTICLE_TEX_W, PARTICLE_TEX_H, m_particleTexture, m_particleTextureMemory);
+        uploadTexture(m_particleTexture, PARTICLE_TEX_W, PARTICLE_TEX_H, particleTextureData);
         createImageView(m_particleTexture, VK_FORMAT_R8G8B8A8_SRGB, m_particleTextureView);
     }
 

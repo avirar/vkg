@@ -342,7 +342,7 @@ void Renderer::drawFrame(float sinRot, float cosRot,
     rpi.renderPass = m_engine.renderPass();
     rpi.framebuffer = m_engine.currentFramebuffer();
     rpi.renderArea.extent = m_engine.extent();
-    VkClearValue clearColor = {{{0.0f, 0.0f, 0.05f, 1.0f}}};
+    VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
     rpi.clearValueCount = 1;
     rpi.pClearValues = &clearColor;
 
