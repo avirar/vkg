@@ -367,7 +367,8 @@ void Renderer::createGraphicsPipeline() {
     vkDestroyShaderModule(m_engine.device(), fragMod, nullptr);
 }
 
-void Renderer::drawFrame(float sinRot, float cosRot,
+void Renderer::drawFrame(float sinOrbit, float cosOrbit,
+                          float sinElev, float cosElev,
                           float singX, float singY, float singZ,
                           float aspectX, float aspectY) {
     uint32_t frameIdx = m_engine.currentFrame();
@@ -412,13 +413,16 @@ void Renderer::drawFrame(float sinRot, float cosRot,
 
     // --- Draw sun (7 concentric layers) ---
     {
-        // Project singularity to screen
+        // Project singularity to screen with camera orbit + elevation
         float camDist = 1.5f;
         float camOff = 0.6f;
-        float rotZ = cosRot * singZ + sinRot * singX;
-        float persp = camDist / (rotZ + camOff);
-        float sunScrX = (cosRot * singX - sinRot * singZ) * persp * aspectX;
-        float sunScrY = singY * persp * aspectY;
+        float ryX = cosOrbit * singX - sinOrbit * singZ;
+        float ryZ = sinOrbit * singX + cosOrbit * singZ;
+        float depth = cosElev * ryZ + sinElev * singY;
+        float elevY = cosElev * singY - sinElev * ryZ;
+        float persp = camDist / (depth + camOff);
+        float sunScrX = ryX * persp * aspectX;
+        float sunScrY = elevY * persp * aspectY;
 
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_sunPipeline);
 

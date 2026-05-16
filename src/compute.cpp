@@ -241,18 +241,19 @@ void Compute::initializeParticles() {
 }
 
 void Compute::update(float dt, float sx, float sy, float sz,
-                     float sinRot, float cosRot, float arX, float arY,
-                     bool reinit) {
+                     float sinOrbit, float cosOrbit, float sinElev, float cosElev,
+                     float arX, float arY) {
     m_push.dt = dt;
     m_push.gravity = 0.01f;
     m_push.damping = 0.982f;
     m_push.particleCount = m_particleCount;
-    m_push.reinit = reinit ? 1u : 0u;
     m_push.singularityX = sx;
     m_push.singularityY = sy;
     m_push.singularityZ = sz;
-    m_push.sinRot = sinRot;
-    m_push.cosRot = cosRot;
+    m_push.sinOrbit = sinOrbit;
+    m_push.cosOrbit = cosOrbit;
+    m_push.sinElev = sinElev;
+    m_push.cosElev = cosElev;
     m_push.cameraDist = 1.5f;
     m_push.cameraOffset = 0.6f;
     m_push.aspectRatioX = arX;

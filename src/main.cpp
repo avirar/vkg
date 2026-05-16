@@ -70,6 +70,9 @@ int main(int argc, char** argv) {
         std::unordered_map<int, bool> prevKeys;
         int debugFrameCount = 0;
 
+        int fpsFrames = 0;
+        auto fpsLastTime = std::chrono::high_resolution_clock::now();
+
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
 
@@ -84,9 +87,6 @@ int main(int argc, char** argv) {
             // Key controls (single-press)
             if (!debugMode && keyPressed(window, GLFW_KEY_SPACE, prevKeys)) {
                 paused = !paused;
-            }
-            if (!debugMode && keyPressed(window, GLFW_KEY_R, prevKeys)) {
-                sim.forceReinit();
             }
             if (!debugMode && keyPressed(window, GLFW_KEY_F, prevKeys)) {
                 fullscreen = !fullscreen;
@@ -119,26 +119,34 @@ int main(int argc, char** argv) {
 
             // Feed simulation state to compute shader
             const auto& s = sim.state();
-            float angleRad = s.rotationAngle * 3.14159265f / 180.0f;
-            bool doReinit = sim.justReinitialized();
-            if (doReinit) {
-                audio.play();
-                sim.clearReinitFlag();
-            }
+            float orbitRad = s.orbitAngle * 3.14159265f / 180.0f;
+            float elevAngle = std::sin(s.wobblePhase * 0.7f) * 5.0f * 3.14159265f / 180.0f;
+            elevAngle += std::sin(s.wobblePhase * 1.3f + 1.0f) * 2.0f * 3.14159265f / 180.0f;
             compute.update(paused ? 0.0f : dt,
                 s.singularityX, s.singularityY, s.singularityZ,
-                std::sin(angleRad), std::cos(angleRad),
-                s.aspectRatioX, s.aspectRatioY,
-                doReinit);
+                std::sin(orbitRad), std::cos(orbitRad),
+                std::sin(elevAngle), std::cos(elevAngle),
+                s.aspectRatioX, s.aspectRatioY);
 
             if (debugMode)
                 compute.forceParticleCount(1);
 
             if (!engine.beginFrame()) continue;
-            renderer.drawFrame(std::sin(angleRad), std::cos(angleRad),
+            renderer.drawFrame(std::sin(orbitRad), std::cos(orbitRad),
+                              std::sin(elevAngle), std::cos(elevAngle),
                               s.singularityX, s.singularityY, s.singularityZ,
                               s.aspectRatioX, s.aspectRatioY);
             engine.endFrame();
+
+            fpsFrames++;
+            auto fpsNow = std::chrono::high_resolution_clock::now();
+            float fpsElapsed = std::chrono::duration_cast<std::chrono::duration<float>>(fpsNow - fpsLastTime).count();
+            if (fpsElapsed >= 1.0f) {
+                int fps = (int)std::round(fpsFrames / fpsElapsed);
+                glfwSetWindowTitle(window, ("GL Gravitation Vulkan - " + std::to_string(fps) + " FPS").c_str());
+                fpsFrames = 0;
+                fpsLastTime = fpsNow;
+            }
         }
 
         engine.waitIdle();

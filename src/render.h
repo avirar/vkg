@@ -31,7 +31,8 @@ public:
     void setCompute(Compute* compute) { m_compute = compute; }
     void setTextures(Textures* tex) { m_textures = tex; createPipelines(); }
     void setDebug(bool d) { m_debugMode = d; }
-    void drawFrame(float sinRot, float cosRot,
+    void drawFrame(float sinOrbit, float cosOrbit,
+                   float sinElev, float cosElev,
                    float singX, float singY, float singZ,
                    float aspectX, float aspectY);
 
