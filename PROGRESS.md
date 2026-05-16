@@ -109,7 +109,7 @@
 - Particle count added to titlebar: `"FPS | N particles"`
 - Legacy `hypercolor = true/false` ini key still parsed (maps to color/off)
 - Push constant struct shrunk 76→44 bytes (vec3 padding → flat floats)
-- **Commit**: (pending)
+- **Commit**: `c7a7932`
 
 ## Known Issues
 - Windows build not yet tested (CMake toolchain should work)
