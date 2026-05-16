@@ -154,7 +154,7 @@
 - Perf: 500K 593→1253 (2.1x), 1M 336→889 (2.6x), 2M 179→623 (3.5x), 5M 97→371 (3.8x)
 - `point_scale` still applies as baseline; auto scaling can be disabled
 - Fragment/ROP confirmed as bottleneck (half point size ≈ 2x FPS)
-- **Commit**: (pending)
+- **Commit**: `aad7e2c`
 
 ## Known Issues
 - HDR output not visible on virtual display (Xvfb) — requires physical HDR monitor
