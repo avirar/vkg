@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
     bool debugMode = false;
     bool startFullscreen = cfg.fullscreen;
     bool benchmarkMode = false;
-    bool osdEnabled = false;
+    bool osdEnabled = cfg.osdEnabled;
     int benchmarkSeconds = 5;
 
     // CLI argument parsing
@@ -58,6 +58,8 @@ int main(int argc, char** argv) {
             }
         } else if (std::strcmp(argv[i], "--osd") == 0) {
             osdEnabled = true;
+        } else if (std::strcmp(argv[i], "--no-osd") == 0) {
+            osdEnabled = false;
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
             std::cout << "vkg — Vulkan GL Gravitation screensaver\n"
                       << "Usage: vkg [options]\n"
@@ -66,7 +68,8 @@ int main(int argc, char** argv) {
                       << "  --point-scale F  Particle size multiplier (0.1-10.0, default: 1.0)\n"
                       << "  --fullscreen     Start in fullscreen mode\n"
                       << "  --benchmark [S]  Benchmark mode: no vsync, run S seconds (default 5), print avg FPS\n"
-                      << "  --osd            Show on-screen display (FPS + particle count overlay)\n"
+                      << "  --osd            Show on-screen display overlay (default: from vkg.ini)\n"
+                      << "  --no-osd         Disable on-screen display overlay\n"
                       << "  --help, -h       Show this help\n"
                       << "\nControls: ESC=quit  Space=pause  F=fullscreen  H=toggle HDR\n"
                       << "Config file: vkg.ini (auto-loaded from current directory)\n";

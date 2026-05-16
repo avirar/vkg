@@ -24,6 +24,8 @@ struct Config {
 
     int singularityCount = 1;
 
+    bool osdEnabled = false;
+
     static Config load();
 };
 

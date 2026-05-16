@@ -126,7 +126,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow
         renderer.setParticleColors(cfg);
         compute.setVelocityIntensity(cfg.hyperVelocityIntensity);
         compute.setDistanceIntensity(cfg.hyperDistanceIntensity);
-        renderer.setOsd(false);
+        renderer.setOsd(cfg.osdEnabled);
 
         Textures textures(engine);
         textures.createProceduralTextures();
