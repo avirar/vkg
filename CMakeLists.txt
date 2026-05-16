@@ -46,6 +46,7 @@ compile_shader(particle_comp ${SHADER_DIR}/particle.comp ${SHADER_OUT_DIR}/parti
 # Main executable
 add_executable(vkg
     src/main.cpp
+    src/config.cpp
     src/engine.cpp
     src/render.cpp
     src/compute.cpp
@@ -80,4 +81,7 @@ add_custom_command(TARGET vkg POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     ${CMAKE_SOURCE_DIR}/../glg-test/glg.wav
     ${CMAKE_BINARY_DIR}/glg.wav
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${CMAKE_SOURCE_DIR}/vkg.ini
+    ${CMAKE_BINARY_DIR}/vkg.ini
 )

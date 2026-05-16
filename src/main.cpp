@@ -1,4 +1,5 @@
 #include "engine.h"
+#include "config.h"
 #include "render.h"
 #include "compute.h"
 #include "simulation.h"
@@ -26,7 +27,11 @@ static bool keyPressed(GLFWwindow* window, int key, std::unordered_map<int, bool
 }
 
 int main(int argc, char** argv) {
+    Config cfg = Config::load();
+
     bool debugMode = (argc > 1 && std::strcmp(argv[1], "--debug") == 0);
+    bool startFullscreen = cfg.fullscreen;
+
     int winW = debugMode ? 80 : 800;
     int winH = debugMode ? 60 : 600;
 
@@ -43,11 +48,18 @@ int main(int argc, char** argv) {
 
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 
+    // Apply fullscreen from config
+    if (startFullscreen) {
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+        glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+    }
+
     try {
         Engine engine(window);
         g_engine = &engine;
 
-        Simulation sim(debugMode ? 1 : 1000);
+        Simulation sim(debugMode ? 1 : (uint32_t)cfg.particles);
         Compute compute(engine);
         compute.init(sim.state().particleCount);
 
@@ -66,7 +78,7 @@ int main(int argc, char** argv) {
 
         auto lastTime = std::chrono::high_resolution_clock::now();
         bool paused = false;
-        bool fullscreen = false;
+        bool fullscreen = startFullscreen;
         std::unordered_map<int, bool> prevKeys;
         int debugFrameCount = 0;
 
