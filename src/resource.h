@@ -1,0 +1,2 @@
+#define ID_APP 100
+#define IDS_DESCRIPTION 1

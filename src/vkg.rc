@@ -1,0 +1,11 @@
+#include <windows.h>
+#include "resource.h"
+
+// String table for Control Panel display name
+STRINGTABLE
+{
+    IDS_DESCRIPTION, "Vulkan GL Gravitation"
+}
+
+// Application icon (uncomment when icon.ico is available)
+// ID_APP ICON "icon.ico"

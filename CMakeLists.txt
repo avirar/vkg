@@ -63,7 +63,7 @@ set(VKG_CORE
 )
 
 if(WIN32)
-    set(VKG_SOURCES ${VKG_CORE} src/screensaver.cpp ${SHADER_SPVS})
+    set(VKG_SOURCES ${VKG_CORE} src/screensaver.cpp src/vkg.rc ${SHADER_SPVS})
 else()
     set(VKG_SOURCES ${VKG_CORE} src/main.cpp ${SHADER_SPVS})
 endif()
