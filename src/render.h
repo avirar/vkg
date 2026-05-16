@@ -31,6 +31,7 @@ public:
     void setCompute(Compute* compute) { m_compute = compute; }
     void setTextures(Textures* tex) { m_textures = tex; createPipelines(); }
     void setDebug(bool d) { m_debugMode = d; }
+    void setPointScale(float s) { m_pointScale = s; }
     void drawFrame(float sinOrbit, float cosOrbit,
                    float sinElev, float cosElev,
                    float singX, float singY, float singZ,
@@ -66,6 +67,7 @@ private:
     VkDeviceMemory m_ssMemory = VK_NULL_HANDLE;
     bool m_ssCaptured = false;
     bool m_debugMode = false;
+    float m_pointScale = 1.0f;
     void initScreenshotBuffer();
     void saveScreenshot(VkFence fence);
     void debugDump(VkFence fence);

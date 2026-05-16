@@ -42,13 +42,18 @@ int main(int argc, char** argv) {
             if (cfg.particles > 32768) cfg.particles = 32768;
         } else if (std::strcmp(argv[i], "--fullscreen") == 0) {
             startFullscreen = true;
+        } else if (std::strcmp(argv[i], "--point-scale") == 0 && i + 1 < argc) {
+            cfg.pointScale = (float)std::atof(argv[++i]);
+            if (cfg.pointScale < 0.1f) cfg.pointScale = 0.1f;
+            if (cfg.pointScale > 10.0f) cfg.pointScale = 10.0f;
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
             std::cout << "vkg — Vulkan GL Gravitation screensaver\n"
                       << "Usage: vkg [options]\n"
-                      << "  --debug        Low-res 80x60 debug mode, 1 frame\n"
-                      << "  --particles N  Number of particles (2-32768, default: 1000)\n"
-                      << "  --fullscreen   Start in fullscreen mode\n"
-                      << "  --help, -h     Show this help\n"
+                      << "  --debug          Low-res 80x60 debug mode, 1 frame\n"
+                      << "  --particles N    Number of particles (2-32768, default: 1000)\n"
+                      << "  --point-scale F  Particle size multiplier (0.1-10.0, default: 1.0)\n"
+                      << "  --fullscreen     Start in fullscreen mode\n"
+                      << "  --help, -h       Show this help\n"
                       << "\nConfig file: vkg.ini (auto-loaded from current directory)\n";
             return 0;
         }
@@ -89,6 +94,7 @@ int main(int argc, char** argv) {
         Renderer renderer(engine);
         renderer.setCompute(&compute);
         renderer.setDebug(debugMode);
+        renderer.setPointScale(cfg.pointScale);
 
         Textures textures(engine);
         textures.createProceduralTextures();

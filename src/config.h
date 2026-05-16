@@ -6,7 +6,8 @@
 struct Config {
     int particles = 1000;
     bool fullscreen = false;
-    int targetFps = 0; // 0 = auto from VSync, else manual target
+    int targetFps = 0;
+    float pointScale = 1.0f;
 
     static Config load();
 };

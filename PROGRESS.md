@@ -69,6 +69,12 @@
 - `recreateSwapChain` now destroys and recreates the Vulkan surface
   (needed after `glfwSetWindowMonitor` changes native window handle)
 - Fixes fullscreen toggle and window resize rendering issues
+- **Commit**: `34cd1b9`
+
+## Milestone 13 — Particle Size Scaling ✅
+- `point_scale` config option and `--point-scale` CLI flag
+- Multiplier on particle point size (0.1–10.0, default 1.0)
+- Passed through Renderer to ParticlePushConstants.pointSizeMult
 - **Commit**: (pending)
 
 ## Known Issues

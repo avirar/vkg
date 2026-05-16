@@ -507,7 +507,7 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
         ParticlePushConstants ppc{};
         ppc.viewportHeight = (float)m_engine.extent().height;
         ppc.aspectY = aspectY;
-        ppc.pointSizeMult = m_debugMode ? 3.0f : 1.0f;
+        ppc.pointSizeMult = m_debugMode ? 3.0f : m_pointScale;
         ppc._pad = 0.0f;
         vkCmdPushConstants(cmd, m_graphicsPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(ppc), &ppc);

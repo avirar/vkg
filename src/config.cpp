@@ -36,6 +36,7 @@ Config loadConfig(const std::string& path) {
             if (key == "particles") cfg.particles = std::atoi(val.c_str());
             else if (key == "fullscreen") cfg.fullscreen = (val == "true" || val == "1" || val == "yes");
             else if (key == "target_fps") cfg.targetFps = std::atoi(val.c_str());
+            else if (key == "point_scale") cfg.pointScale = (float)std::atof(val.c_str());
         }
     }
     return cfg;
