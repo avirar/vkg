@@ -431,6 +431,9 @@ void Engine::recreateSwapChain() {
     }
     vkDeviceWaitIdle(m_device);
     cleanupSwapChain();
+    vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+    if (glfwCreateWindowSurface(m_instance, m_window, nullptr, &m_surface) != VK_SUCCESS)
+        throw std::runtime_error("Failed to recreate window surface");
     createSwapChain();
     createRenderPass();
     createFramebuffers();

@@ -63,6 +63,12 @@
 - `--fullscreen` flag
 - `--help` / `-h` usage info
 - `target_fps` option drives particle count auto-adjuster
+- **Commit**: `acca92f`
+
+## Milestone 12 — Surface Recreation on Fullscreen ✅
+- `recreateSwapChain` now destroys and recreates the Vulkan surface
+  (needed after `glfwSetWindowMonitor` changes native window handle)
+- Fixes fullscreen toggle and window resize rendering issues
 - **Commit**: (pending)
 
 ## Known Issues
