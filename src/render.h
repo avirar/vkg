@@ -11,6 +11,11 @@ struct SunPushConstants {
     float alpha;
 };
 
+struct ParticlePushConstants {
+    float viewportHeight;
+    float aspectY;
+};
+
 class Renderer {
 public:
     Renderer(Engine& engine);

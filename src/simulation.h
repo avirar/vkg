@@ -45,7 +45,7 @@ private:
     static constexpr float SINGULARITY_POS_RANGE = 0.2f;
     static constexpr float TARGET_SPEED = 0.01f;
     static constexpr float CAMERA_DIST = 1.5f;
-    static constexpr float CAMERA_OFFSET = 0.0f;
+    static constexpr float CAMERA_OFFSET = 0.6f;
     static constexpr int REINIT_COUNTDOWN_START = 2048;
     static constexpr uint32_t MIN_PARTICLES = 2;
     static constexpr uint32_t MAX_PARTICLES = 32768;

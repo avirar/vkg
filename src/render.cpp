@@ -289,10 +289,16 @@ void Renderer::createGraphicsPipeline() {
     // Pipeline layout with texture descriptor set
     VkDescriptorSetLayout setLayouts[1] = { m_textures->descriptorSetLayout() };
 
+    VkPushConstantRange pcr{};
+    pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pcr.size = sizeof(ParticlePushConstants);
+
     VkPipelineLayoutCreateInfo plci{};
     plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     plci.setLayoutCount = 1;
     plci.pSetLayouts = setLayouts;
+    plci.pushConstantRangeCount = 1;
+    plci.pPushConstantRanges = &pcr;
 
     if (vkCreatePipelineLayout(m_engine.device(), &plci, nullptr, &m_graphicsPipelineLayout) != VK_SUCCESS)
         throw std::runtime_error("Failed to create graphics pipeline layout");
@@ -364,7 +370,7 @@ void Renderer::drawFrame(float sinRot, float cosRot,
     {
         // Project singularity to screen
         float camDist = 1.5f;
-        float camOff = 0.0f;
+        float camOff = 0.6f;
         float rotZ = cosRot * singZ + sinRot * singX;
         float persp = camDist / (rotZ + camOff);
         float sunScrX = (cosRot * singX - sinRot * singZ) * persp * aspectX;
@@ -438,6 +444,12 @@ void Renderer::drawFrame(float sinRot, float cosRot,
     // --- Draw particles ---
     if (m_compute && m_compute->particleCount() > 0) {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
+
+        ParticlePushConstants ppc{};
+        ppc.viewportHeight = (float)m_engine.extent().height;
+        ppc.aspectY = aspectY;
+        vkCmdPushConstants(cmd, m_graphicsPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                           0, sizeof(ppc), &ppc);
 
         if (m_textures) {
             VkDescriptorSet partSet = m_textures->particleDescriptorSet();

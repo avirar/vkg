@@ -204,7 +204,7 @@ void Compute::update(float dt, float sx, float sy, float sz,
     m_push.sinRot = sinRot;
     m_push.cosRot = cosRot;
     m_push.cameraDist = 1.5f;
-    m_push.cameraOffset = 0.0f;
+    m_push.cameraOffset = 0.6f;
     m_push.aspectRatioX = arX;
     m_push.aspectRatioY = arY;
     m_push.seed = (uint32_t)std::chrono::steady_clock::now().time_since_epoch().count();
