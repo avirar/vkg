@@ -14,7 +14,13 @@ find_package(glfw3 3.3 REQUIRED)
 # GLM - header-only, optionally find via CMake
 find_package(glm QUIET)
 if(NOT glm_FOUND)
-    pkg_check_modules(GLM glm)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(GLM glm)
+    endif()
+    if(NOT (glm_FOUND OR GLM_FOUND))
+        find_path(GLM_INCLUDE_DIRS glm/glm.hpp)
+    endif()
 endif()
 
 # Shader compiler
@@ -65,6 +71,8 @@ target_include_directories(vkg PRIVATE
 if(glm_FOUND)
     target_include_directories(vkg PRIVATE ${glm_INCLUDE_DIRS})
 elseif(GLM_FOUND AND GLM_INCLUDE_DIRS)
+    target_include_directories(vkg PRIVATE ${GLM_INCLUDE_DIRS})
+elseif(GLM_INCLUDE_DIRS)
     target_include_directories(vkg PRIVATE ${GLM_INCLUDE_DIRS})
 endif()
 
