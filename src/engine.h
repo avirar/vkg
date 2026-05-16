@@ -1,11 +1,19 @@
 #pragma once
 
 #include "vkg.h"
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <GLFW/glfw3.h>
+#endif
 
 class Engine {
 public:
+#ifdef _WIN32
+    Engine(HWND hwnd, HINSTANCE hInstance, bool wantHdr = false, bool benchmark = false);
+#else
     Engine(GLFWwindow* window, bool wantHdr = false, bool benchmark = false);
+#endif
     ~Engine();
 
     Engine(const Engine&) = delete;
@@ -58,7 +66,12 @@ private:
     void cleanupSwapChain();
     void setHdrMetadata();
 
+#ifdef _WIN32
+    HWND m_hwnd = nullptr;
+    HINSTANCE m_hInstance = nullptr;
+#else
     GLFWwindow* m_window = nullptr;
+#endif
     VkInstance m_instance = VK_NULL_HANDLE;
     VkSurfaceKHR m_surface = VK_NULL_HANDLE;
     VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;

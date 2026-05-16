@@ -1,3 +1,5 @@
+#ifndef _WIN32
+
 #include "engine.h"
 #include "config.h"
 #include "render.h"
@@ -269,3 +271,4 @@ int main(int argc, char** argv) {
     glfwTerminate();
     return 0;
 }
+#endif // !_WIN32

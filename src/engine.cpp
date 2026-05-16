@@ -65,7 +65,11 @@ VkShaderModule createShaderModule(VkDevice device, const std::vector<char>& code
 }
 
 // Engine implementation
+#ifdef _WIN32
+Engine::Engine(HWND hwnd, HINSTANCE hInstance, bool wantHdr, bool benchmark) : m_hwnd(hwnd), m_hInstance(hInstance), m_benchmarkMode(benchmark) {
+#else
 Engine::Engine(GLFWwindow* window, bool wantHdr, bool benchmark) : m_window(window), m_benchmarkMode(benchmark) {
+#endif
     createInstance();
     createSurface();
     pickPhysicalDevice();
@@ -113,9 +117,17 @@ void Engine::createInstance() {
     ci.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     ci.pApplicationInfo = &ai;
 
+#ifdef _WIN32
+    // Win32 requires instance extensions manually (no GLFW)
+    std::vector<const char*> extensions = {
+        VK_KHR_SURFACE_EXTENSION_NAME,
+        VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+    };
+#else
     uint32_t glfwExtCount = 0;
     const char** glfwExts = glfwGetRequiredInstanceExtensions(&glfwExtCount);
     std::vector<const char*> extensions(glfwExts, glfwExts + glfwExtCount);
+#endif
 
     // Check for swapchain_colorspace (needed for HDR)
     bool hasSwapchainColorSpace = false;
@@ -164,8 +176,17 @@ void Engine::createInstance() {
 }
 
 void Engine::createSurface() {
+#ifdef _WIN32
+    VkWin32SurfaceCreateInfoKHR sci{};
+    sci.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+    sci.hwnd = m_hwnd;
+    sci.hinstance = m_hInstance;
+    if (vkCreateWin32SurfaceKHR(m_instance, &sci, nullptr, &m_surface) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create Win32 surface");
+#else
     if (glfwCreateWindowSurface(m_instance, m_window, nullptr, &m_surface) != VK_SUCCESS)
         throw std::runtime_error("Failed to create window surface");
+#endif
 }
 
 void Engine::pickPhysicalDevice() {
@@ -288,10 +309,22 @@ VkPresentModeKHR choosePresentMode(const std::vector<VkPresentModeKHR>& modes) {
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D chooseExtent(const VkSurfaceCapabilitiesKHR& caps, GLFWwindow* window) {
+VkExtent2D chooseExtent(const VkSurfaceCapabilitiesKHR& caps,
+#ifdef _WIN32
+                       HWND hwnd) {
+#else
+                       GLFWwindow* window) {
+#endif
     if (caps.currentExtent.width != UINT32_MAX) return caps.currentExtent;
     int w, h;
+#ifdef _WIN32
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    w = rc.right - rc.left;
+    h = rc.bottom - rc.top;
+#else
     glfwGetFramebufferSize(window, &w, &h);
+#endif
     return {
         std::clamp((uint32_t)w, caps.minImageExtent.width, caps.maxImageExtent.width),
         std::clamp((uint32_t)h, caps.minImageExtent.height, caps.maxImageExtent.height)
@@ -357,7 +390,12 @@ void Engine::createSwapChain(bool wantHdr) {
         }
         return choosePresentMode(m_swapChainSupport.presentModes);
     }();
-    auto extent = chooseExtent(m_swapChainSupport.capabilities, m_window);
+    auto extent = chooseExtent(m_swapChainSupport.capabilities,
+#ifdef _WIN32
+        m_hwnd);
+#else
+        m_window);
+#endif
 
     uint32_t imageCount = m_swapChainSupport.capabilities.minImageCount + 1;
     if (m_swapChainSupport.capabilities.maxImageCount > 0 &&
@@ -496,6 +534,24 @@ void Engine::createSyncObjects() {
 
 void Engine::recreateSwapChain() {
     int w = 0, h = 0;
+#ifdef _WIN32
+    RECT rc;
+    GetClientRect(m_hwnd, &rc);
+    w = rc.right - rc.left;
+    h = rc.bottom - rc.top;
+    while (w == 0 || h == 0) {
+        Sleep(100);
+        GetClientRect(m_hwnd, &rc);
+        w = rc.right - rc.left;
+        h = rc.bottom - rc.top;
+    }
+    vkDeviceWaitIdle(m_device);
+    cleanupSwapChain();
+    createSwapChain(m_hdrEnabled);
+    createRenderPass();
+    createFramebuffers();
+    createSyncObjects();
+#else
     glfwGetFramebufferSize(m_window, &w, &h);
     while (w == 0 || h == 0) {
         glfwWaitEvents();
@@ -510,6 +566,7 @@ void Engine::recreateSwapChain() {
     createRenderPass();
     createFramebuffers();
     createSyncObjects();
+#endif
 }
 
 void Engine::cleanupSwapChain() {
@@ -557,9 +614,13 @@ void Engine::toggleHdr() {
     m_hdrEnabled = !m_hdrEnabled;
     vkDeviceWaitIdle(m_device);
     cleanupSwapChain();
+#ifdef _WIN32
+    // Surface is persistent on Win32
+#else
     vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
     if (glfwCreateWindowSurface(m_instance, m_window, nullptr, &m_surface) != VK_SUCCESS)
         throw std::runtime_error("Failed to recreate window surface");
+#endif
     createSwapChain(m_hdrEnabled);
     createRenderPass();
     createFramebuffers();
