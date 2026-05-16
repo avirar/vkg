@@ -50,6 +50,8 @@ compile_shader(quad_frag ${SHADER_DIR}/quad.frag ${SHADER_OUT_DIR}/quad.frag.spv
 compile_shader(sun_vert ${SHADER_DIR}/sun.vert ${SHADER_OUT_DIR}/sun.vert.spv)
 compile_shader(sun_frag ${SHADER_DIR}/sun.frag ${SHADER_OUT_DIR}/sun.frag.spv)
 compile_shader(particle_comp ${SHADER_DIR}/particle.comp ${SHADER_OUT_DIR}/particle.comp.spv)
+compile_shader(osd_vert ${SHADER_DIR}/osd.vert ${SHADER_OUT_DIR}/osd.vert.spv)
+compile_shader(osd_frag ${SHADER_DIR}/osd.frag ${SHADER_OUT_DIR}/osd.frag.spv)
 
 # Core source files (shared between platforms)
 set(VKG_CORE

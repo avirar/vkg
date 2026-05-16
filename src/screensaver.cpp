@@ -144,6 +144,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow
 
         auto lastTime = std::chrono::high_resolution_clock::now();
         bool paused = false;
+        float currentFps = 0.0f;
+        int fpsFrames = 0;
+        auto fpsLastTime = lastTime;
 
         while (g_running) {
             // Process Windows messages
@@ -204,8 +207,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow
                 s.aspectRatioX, s.aspectRatioY);
 
             if (!engine.beginFrame()) continue;
+            renderer.setOsdStats(compute.particleCount(), currentFps);
             renderer.drawFrame(s, s.aspectRatioX, s.aspectRatioY);
             engine.endFrame();
+
+            fpsFrames++;
+            auto fpsNow = std::chrono::high_resolution_clock::now();
+            float fpsElapsed = std::chrono::duration_cast<std::chrono::duration<float>>(fpsNow - fpsLastTime).count();
+            if (fpsElapsed >= 1.0f) {
+                currentFps = fpsFrames / fpsElapsed;
+                fpsFrames = 0;
+                fpsLastTime = fpsNow;
+            }
         }
 
         engine.waitIdle();

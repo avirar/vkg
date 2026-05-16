@@ -38,6 +38,7 @@ public:
     void setPointScale(float s) { m_pointScale = s; }
     void setParticleColors(const Config& cfg);
     void setOsd(bool osd) { m_osd = osd; }
+    void setOsdStats(uint32_t count, float fps) { m_osdParticles = count; m_osdFps = fps; }
     void drawFrame(const SimState& state, float aspectX, float aspectY);
     void recordSunGeometryInit(VkCommandBuffer cmd);
     void cleanupSunInitStaging();
@@ -76,7 +77,8 @@ private:
     VkBuffer m_osdIndexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_osdIndexMemory = VK_NULL_HANDLE;
     bool m_osd = false;
-    float m_osdLastFps = 0.0f;
+    uint32_t m_osdParticles = 0;
+    float m_osdFps = 0.0f;
 
     std::vector<VkCommandBuffer> m_commandBuffers;
 

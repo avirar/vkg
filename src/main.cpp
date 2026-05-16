@@ -34,6 +34,7 @@ int main(int argc, char** argv) {
     bool debugMode = false;
     bool startFullscreen = cfg.fullscreen;
     bool benchmarkMode = false;
+    bool osdEnabled = false;
     int benchmarkSeconds = 5;
 
     // CLI argument parsing
@@ -55,6 +56,8 @@ int main(int argc, char** argv) {
                 benchmarkSeconds = std::atoi(argv[++i]);
                 if (benchmarkSeconds < 1) benchmarkSeconds = 1;
             }
+        } else if (std::strcmp(argv[i], "--osd") == 0) {
+            osdEnabled = true;
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
             std::cout << "vkg — Vulkan GL Gravitation screensaver\n"
                       << "Usage: vkg [options]\n"
@@ -63,6 +66,7 @@ int main(int argc, char** argv) {
                       << "  --point-scale F  Particle size multiplier (0.1-10.0, default: 1.0)\n"
                       << "  --fullscreen     Start in fullscreen mode\n"
                       << "  --benchmark [S]  Benchmark mode: no vsync, run S seconds (default 5), print avg FPS\n"
+                      << "  --osd            Show on-screen display (FPS + particle count overlay)\n"
                       << "  --help, -h       Show this help\n"
                       << "\nControls: ESC=quit  Space=pause  F=fullscreen  H=toggle HDR\n"
                       << "Config file: vkg.ini (auto-loaded from current directory)\n";
@@ -113,7 +117,7 @@ int main(int argc, char** argv) {
         renderer.setParticleColors(cfg);
         compute.setVelocityIntensity(cfg.hyperVelocityIntensity);
         compute.setDistanceIntensity(cfg.hyperDistanceIntensity);
-        renderer.setOsd(false); // OSD handled later
+        renderer.setOsd(osdEnabled);
 
         Textures textures(engine);
         textures.createProceduralTextures();
@@ -140,10 +144,11 @@ int main(int argc, char** argv) {
         std::unordered_map<int, bool> prevKeys;
         int debugFrameCount = 0;
 
-        int fpsFrames = 0;
-        auto fpsLastTime = std::chrono::high_resolution_clock::now();
-        auto benchStartTime = fpsLastTime;
-        int benchFrames = 0;
+            int fpsFrames = 0;
+            auto fpsLastTime = std::chrono::high_resolution_clock::now();
+            auto benchStartTime = fpsLastTime;
+            int benchFrames = 0;
+            float currentFps = 0.0f;
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
@@ -241,6 +246,7 @@ int main(int argc, char** argv) {
                 compute.forceParticleCount(1);
 
             if (!engine.beginFrame()) continue;
+            renderer.setOsdStats(compute.particleCount(), currentFps);
             renderer.drawFrame(s, s.aspectRatioX, s.aspectRatioY);
             engine.endFrame();
 
@@ -248,8 +254,8 @@ int main(int argc, char** argv) {
             auto fpsNow = std::chrono::high_resolution_clock::now();
             float fpsElapsed = std::chrono::duration_cast<std::chrono::duration<float>>(fpsNow - fpsLastTime).count();
             if (!benchmarkMode && fpsElapsed >= 1.0f) {
-                int fps = (int)std::round(fpsFrames / fpsElapsed);
-                glfwSetWindowTitle(window, ("GL Gravitation Vulkan - " + std::to_string(fps) + " FPS | " + std::to_string(compute.particleCount()) + " particles | HDR " + (engine.hdrEnabled() ? "on" : "off")).c_str());
+                currentFps = fpsFrames / fpsElapsed;
+                glfwSetWindowTitle(window, ("GL Gravitation Vulkan - " + std::to_string((int)std::round(currentFps)) + " FPS | " + std::to_string(compute.particleCount()) + " particles | HDR " + (engine.hdrEnabled() ? "on" : "off")).c_str());
                 fpsFrames = 0;
                 fpsLastTime = fpsNow;
             }

@@ -5,6 +5,10 @@
 #include <cstdio>
 #include <vector>
 #include <algorithm>
+#include <cstring>
+
+#define STB_EASY_FONT_IMPLEMENTATION
+#include "../third_party/stb_easy_font.h"
 
 Renderer::Renderer(Engine& engine) : m_engine(engine) {
     createCommandBuffers();
@@ -375,8 +379,195 @@ void Renderer::createGraphicsPipeline() {
 }
 
 void Renderer::createOsdPipeline() {
-    // OSD pipeline uses stb_easy_font vertex format (16-byte interleaved pos+color)
-    // Not created here -- done lazily on first drawOsd call
+    auto vertCode = readFile("shaders/osd.vert.spv");
+    auto fragCode = readFile("shaders/osd.frag.spv");
+    VkShaderModule vertMod = createShaderModule(m_engine.device(), vertCode);
+    VkShaderModule fragMod = createShaderModule(m_engine.device(), fragCode);
+
+    VkPipelineShaderStageCreateInfo stages[2]{};
+    stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    stages[0].module = vertMod;
+    stages[0].pName = "main";
+    stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stages[1].module = fragMod;
+    stages[1].pName = "main";
+
+    // Vertex input: vec3 pos + uint8 RGBA color (16 bytes per vertex)
+    VkVertexInputBindingDescription bindDesc{};
+    bindDesc.binding = 0;
+    bindDesc.stride = 16;
+    bindDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription attrDescs[2]{};
+    attrDescs[0].binding = 0;
+    attrDescs[0].location = 0;
+    attrDescs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attrDescs[0].offset = 0;
+
+    attrDescs[1].binding = 0;
+    attrDescs[1].location = 1;
+    attrDescs[1].format = VK_FORMAT_R8G8B8A8_UNORM;
+    attrDescs[1].offset = 12;
+
+    VkPipelineVertexInputStateCreateInfo vis{};
+    vis.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vis.vertexBindingDescriptionCount = 1;
+    vis.pVertexBindingDescriptions = &bindDesc;
+    vis.vertexAttributeDescriptionCount = 2;
+    vis.pVertexAttributeDescriptions = attrDescs;
+
+    VkPipelineInputAssemblyStateCreateInfo ias{};
+    ias.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    ias.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    VkPipelineViewportStateCreateInfo vs{};
+    vs.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    vs.viewportCount = 1;
+    vs.scissorCount = 1;
+
+    VkPipelineRasterizationStateCreateInfo rs{};
+    rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rs.polygonMode = VK_POLYGON_MODE_FILL;
+    rs.cullMode = VK_CULL_MODE_NONE;
+    rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rs.lineWidth = 1.0f;
+
+    VkPipelineMultisampleStateCreateInfo ms{};
+    ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkPipelineDepthStencilStateCreateInfo ds{};
+    ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    ds.depthTestEnable = VK_FALSE;
+    ds.depthWriteEnable = VK_FALSE;
+
+    // Alpha blending for overlay
+    VkPipelineColorBlendAttachmentState cba{};
+    cba.blendEnable = VK_TRUE;
+    cba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    cba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    cba.colorBlendOp = VK_BLEND_OP_ADD;
+    cba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    cba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    cba.alphaBlendOp = VK_BLEND_OP_ADD;
+    cba.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                         VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+    VkPipelineColorBlendStateCreateInfo cbs{};
+    cbs.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    cbs.attachmentCount = 1;
+    cbs.pAttachments = &cba;
+
+    std::array<VkDynamicState, 2> dynamicStates = {
+        VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR
+    };
+    VkPipelineDynamicStateCreateInfo dsc{};
+    dsc.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dsc.dynamicStateCount = (uint32_t)dynamicStates.size();
+    dsc.pDynamicStates = dynamicStates.data();
+
+    VkPushConstantRange pcr{};
+    pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pcr.size = 2 * sizeof(float); // vec2 invScreenSize
+
+    VkPipelineLayoutCreateInfo plci{};
+    plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    plci.setLayoutCount = 0;
+    plci.pSetLayouts = nullptr;
+    plci.pushConstantRangeCount = 1;
+    plci.pPushConstantRanges = &pcr;
+
+    if (vkCreatePipelineLayout(m_engine.device(), &plci, nullptr, &m_osdPipelineLayout) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create OSD pipeline layout");
+
+    VkGraphicsPipelineCreateInfo pci{};
+    pci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pci.stageCount = 2;
+    pci.pStages = stages;
+    pci.pVertexInputState = &vis;
+    pci.pInputAssemblyState = &ias;
+    pci.pViewportState = &vs;
+    pci.pRasterizationState = &rs;
+    pci.pMultisampleState = &ms;
+    pci.pDepthStencilState = &ds;
+    pci.pColorBlendState = &cbs;
+    pci.pDynamicState = &dsc;
+    pci.layout = m_osdPipelineLayout;
+    pci.renderPass = m_engine.renderPass();
+    pci.subpass = 0;
+
+    if (vkCreateGraphicsPipelines(m_engine.device(), VK_NULL_HANDLE, 1, &pci, nullptr,
+                                  &m_osdPipeline) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create OSD pipeline");
+
+    vkDestroyShaderModule(m_engine.device(), vertMod, nullptr);
+    vkDestroyShaderModule(m_engine.device(), fragMod, nullptr);
+
+    // Create OSD buffers (max 512 chars = 2048 vertices, 3072 indices)
+    const uint32_t maxChars = 512;
+    VkDeviceSize vSize = maxChars * 4 * 16; // 4 verts/char, 16 bytes/vert
+    VkDeviceSize iSize = maxChars * 6 * sizeof(uint16_t);
+
+    m_engine.createBuffer(vSize,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        m_osdVertexBuffer, m_osdVertexMemory);
+
+    m_engine.createBuffer(iSize,
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        m_osdIndexBuffer, m_osdIndexMemory);
+
+    // Pre-populate index buffer with repeating quad pattern
+    void* idata;
+    vkMapMemory(m_engine.device(), m_osdIndexMemory, 0, iSize, 0, &idata);
+    uint16_t* indices = (uint16_t*)idata;
+    for (uint32_t i = 0; i < maxChars; i++) {
+        uint16_t base = i * 4;
+        indices[i * 6 + 0] = base + 0;
+        indices[i * 6 + 1] = base + 1;
+        indices[i * 6 + 2] = base + 2;
+        indices[i * 6 + 3] = base + 2;
+        indices[i * 6 + 4] = base + 1;
+        indices[i * 6 + 5] = base + 3;
+    }
+    vkUnmapMemory(m_engine.device(), m_osdIndexMemory);
+}
+
+void Renderer::drawOsd(VkCommandBuffer cmd, uint32_t particleCount, float fps) {
+    if (!m_osd || !m_osdPipeline) return;
+
+    char text[256];
+    snprintf(text, sizeof(text), "%.0f fps | %u particles | ss=%.0f",
+             fps, particleCount, m_pointScale * (m_osd ? 1.0f : 1.0f));
+
+    unsigned char color[4] = {0, 255, 0, 255}; // green
+    char vertexBuf[50 * 4 * 16]; // enough for ~50 chars
+    int numQuads = stb_easy_font_print(10, 10, text, color, vertexBuf, sizeof(vertexBuf));
+
+    uint32_t charCount = (uint32_t)numQuads;
+    VkDeviceSize vSize = charCount * 4 * 16;
+
+    void* data;
+    vkMapMemory(m_engine.device(), m_osdVertexMemory, 0, vSize, 0, &data);
+    memcpy(data, vertexBuf, vSize);
+    vkUnmapMemory(m_engine.device(), m_osdVertexMemory);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_osdPipeline);
+
+    float invScreenSize[2] = {
+        1.0f / (float)m_engine.extent().width,
+        1.0f / (float)m_engine.extent().height
+    };
+    vkCmdPushConstants(cmd, m_osdPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                       0, sizeof(invScreenSize), invScreenSize);
+
+    VkDeviceSize vOffset = 0;
+    vkCmdBindVertexBuffers(cmd, 0, 1, &m_osdVertexBuffer, &vOffset);
+    vkCmdBindIndexBuffer(cmd, m_osdIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(cmd, charCount * 6, 1, 0, 0, 0);
 }
 
 void Renderer::drawFrame(const SimState& state, float aspectX, float aspectY) {
@@ -495,6 +686,9 @@ void Renderer::drawFrame(const SimState& state, float aspectX, float aspectY) {
         vkCmdBindVertexBuffers(cmd, 0, 1, &particleBuf, &offset);
         vkCmdDraw(cmd, m_compute->particleCount(), 1, 0, 0);
     }
+
+    // --- OSD overlay ---
+    drawOsd(cmd, m_compute ? m_compute->particleCount() : m_osdParticles, m_osdFps);
 
     vkCmdEndRenderPass(cmd);
 
