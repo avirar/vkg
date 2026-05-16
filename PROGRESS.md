@@ -206,6 +206,25 @@
 - 100K: 3875 FPS | 500K: 2325 FPS | 1M: 1757 FPS | 2M: 1149 FPS | 5M: 531 FPS
 - From baseline (97→531 at 5M): 5.5x cumulative improvement
 
+## Milestone 28 — Windows Screensaver Port (win branch) ✅
+- Cross-compiled from Linux via MinGW-w64 (`x86_64-w64-mingw32-gcc/g++`)
+- `VK_KHR_win32_surface` for direct Win32 surface creation (no GLFW)
+- `WinMain` entry point with `/s` (run), `/p <HWND>` (preview), `/c` (config) args
+- Custom `WndProc` with exit on any input (mouse/key), `SC_SCREENSAVE` passthrough
+- Engine: `#ifdef _WIN32` constructor takes `(HWND, HINSTANCE)`, surface path uses `vkCreateWin32SurfaceKHR`
+- `main.cpp` guarded with `#ifndef _WIN32`, `screensaver.cpp` with `#ifdef _WIN32` (mutual exclusion)
+- `CMakeLists.txt`: GLFW optional on Windows, Win32 subsystem (`/SUBSYSTEM:WINDOWS`), output `.scr`
+- Toolchain file (`mingw-w64.cmake`) with `-static` linker flag — zero MinGW DLL dependencies
+- Imports only: `GDI32`, `KERNEL32`, `USER32`, `vulkan-1`, UCRT
+- Resource file (`.rc`) with string table for Control Panel display name
+- Build: 14MB PE32+ GUI executable, no console window
+- Linux build verified intact (no regressions)
+- Sysroot deps built: Vulkan-Headers, Vulkan-Loader (`libvulkan-1.dll.a`), GLFW (static `.a`)
+- **Branch**: `win` (https://github.com/avirar/vkg/tree/win)
+- **Commits**: `1c89e36`, `ae459b1`, `06c467b`
+
 ## Known Issues
 - HDR output not visible on virtual display (Xvfb) — requires physical HDR monitor
-- Windows build not yet tested
+- No runtime Windows testing yet (compilation verified via cross-compile)
+- Multi-monitor support not implemented (single fullscreen window on primary monitor)
+- `ShowCursor(FALSE)` only hides cursor on primary monitor
