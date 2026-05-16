@@ -111,8 +111,19 @@
 - Push constant struct shrunk 76→44 bytes (vec3 padding → flat floats)
 - **Commit**: `c7a7932`
 
+## Milestone 18 — Native HDR Display Output ✅
+- scRGB swapchain (`VK_FORMAT_R16G16B16A16_SFLOAT` + `VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT`)
+- HDR10 PQ fallback (`VK_FORMAT_A2B10G10R10_UNORM_PACK32` + `VK_COLOR_SPACE_HDR10_ST2084_EXT`)
+- HDR metadata via `VK_EXT_hdr_metadata` (BT.2020 primaries, max/min luminance)
+- `VK_EXT_swapchain_colorspace` instance extension + `VK_EXT_hdr_metadata` device extension
+- Config options: `hdr = true/false`, `hdr_max_luminance` (nits)
+- H toggle keybind to switch HDR on/off at runtime
+- SDR fallback: UNORM sRGB swapchain when HDR disabled/unavailable
+- Titlebar shows "HDR on/off" status
+- Screenshot/debug buffer handles half-float format (IEEE 754 h2f conversion)
+- No shader changes needed (scRGB driver auto-converts linear float → display nits)
+- **Commit**: (pending)
+
 ## Known Issues
-- Windows build not yet tested (CMake toolchain should work)
-- Audio currently disabled (commented out load call)
-- HDR not yet implemented
-- No indirect draw / GPU-driven particle count yet
+- HDR output not visible on virtual display (Xvfb) — requires physical HDR monitor
+- Windows build not yet tested

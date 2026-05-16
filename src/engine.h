@@ -5,7 +5,7 @@
 
 class Engine {
 public:
-    Engine(GLFWwindow* window);
+    Engine(GLFWwindow* window, bool wantHdr = false);
     ~Engine();
 
     Engine(const Engine&) = delete;
@@ -31,6 +31,9 @@ public:
     uint32_t currentFrame() const { return m_currentFrame; }
     VkImage currentSwapchainImage() const { return m_swapChainImages[m_currentImage]; }
     void setFramebufferResized() { m_framebufferResized = true; }
+    bool hdrEnabled() const { return m_hdrEnabled; }
+    void setHdrMaxLuminance(float lum) { m_hdrMaxLuminance = lum; }
+    void toggleHdr();
 
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer cmd);
@@ -46,13 +49,14 @@ private:
     void createSurface();
     void pickPhysicalDevice();
     void createLogicalDevice();
-    void createSwapChain();
+    void createSwapChain(bool wantHdr);
     void createRenderPass();
     void createFramebuffers();
     void createCommandPool();
     void createSyncObjects();
     void recreateSwapChain();
     void cleanupSwapChain();
+    void setHdrMetadata();
 
     GLFWwindow* m_window = nullptr;
     VkInstance m_instance = VK_NULL_HANDLE;
@@ -79,6 +83,9 @@ private:
     uint32_t m_currentFrame = 0;
     uint32_t m_currentImage = 0;
     bool m_framebufferResized = false;
+    bool m_hdrEnabled = false;
+    VkColorSpaceKHR m_colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    float m_hdrMaxLuminance = 1000.0f;
 
     QueueFamilyIndices m_queueFamilies;
     SwapChainSupport m_swapChainSupport;

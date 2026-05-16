@@ -65,12 +65,12 @@ VkShaderModule createShaderModule(VkDevice device, const std::vector<char>& code
 }
 
 // Engine implementation
-Engine::Engine(GLFWwindow* window) : m_window(window) {
+Engine::Engine(GLFWwindow* window, bool wantHdr) : m_window(window) {
     createInstance();
     createSurface();
     pickPhysicalDevice();
     createLogicalDevice();
-    createSwapChain();
+    createSwapChain(wantHdr);
     createRenderPass();
     createFramebuffers();
     createCommandPool();
@@ -116,6 +116,20 @@ void Engine::createInstance() {
     uint32_t glfwExtCount = 0;
     const char** glfwExts = glfwGetRequiredInstanceExtensions(&glfwExtCount);
     std::vector<const char*> extensions(glfwExts, glfwExts + glfwExtCount);
+
+    // Check for swapchain_colorspace (needed for HDR)
+    bool hasSwapchainColorSpace = false;
+    {
+        uint32_t extCount;
+        vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
+        std::vector<VkExtensionProperties> available(extCount);
+        vkEnumerateInstanceExtensionProperties(nullptr, &extCount, available.data());
+        for (const auto& e : available)
+            if (strcmp(e.extensionName, VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME) == 0)
+                hasSwapchainColorSpace = true;
+    }
+    if (hasSwapchainColorSpace) extensions.push_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
+
     if (validationAvailable) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     ci.enabledExtensionCount = (uint32_t)extensions.size();
@@ -244,6 +258,20 @@ void Engine::createLogicalDevice() {
     dci.pEnabledFeatures = &feats;
 
     std::vector<const char*> extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
+    // Check for HDR metadata extension
+    {
+        uint32_t extCount;
+        vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &extCount, nullptr);
+        std::vector<VkExtensionProperties> available(extCount);
+        vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &extCount, available.data());
+        for (const auto& e : available)
+            if (strcmp(e.extensionName, VK_EXT_HDR_METADATA_EXTENSION_NAME) == 0) {
+                extensions.push_back(VK_EXT_HDR_METADATA_EXTENSION_NAME);
+                break;
+            }
+    }
+
     dci.enabledExtensionCount = (uint32_t)extensions.size();
     dci.ppEnabledExtensionNames = extensions.data();
 
@@ -252,13 +280,6 @@ void Engine::createLogicalDevice() {
 
     vkGetDeviceQueue(m_device, m_queueFamilies.graphics.value(), 0, &m_graphicsQueue);
     vkGetDeviceQueue(m_device, m_queueFamilies.compute.value(), 0, &m_computeQueue);
-}
-
-VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats) {
-    for (const auto& f : formats)
-        if (f.format == VK_FORMAT_B8G8R8A8_SRGB && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-            return f;
-    return formats[0];
 }
 
 VkPresentModeKHR choosePresentMode(const std::vector<VkPresentModeKHR>& modes) {
@@ -277,7 +298,7 @@ VkExtent2D chooseExtent(const VkSurfaceCapabilitiesKHR& caps, GLFWwindow* window
     };
 }
 
-void Engine::createSwapChain() {
+void Engine::createSwapChain(bool wantHdr) {
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, m_surface, &m_swapChainSupport.capabilities);
 
     uint32_t fc;
@@ -290,7 +311,45 @@ void Engine::createSwapChain() {
     m_swapChainSupport.presentModes.resize(pc);
     vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, m_surface, &pc, m_swapChainSupport.presentModes.data());
 
-    auto format = chooseSwapSurfaceFormat(m_swapChainSupport.formats);
+    VkSurfaceFormatKHR chosenFormat{};
+    m_hdrEnabled = false;
+
+    if (wantHdr) {
+        // Try scRGB first (easiest — linear float, driver handles PQ conversion)
+        for (const auto& f : m_swapChainSupport.formats) {
+            if (f.format == VK_FORMAT_R16G16B16A16_SFLOAT &&
+                f.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT) {
+                chosenFormat = f;
+                m_hdrEnabled = true;
+                break;
+            }
+        }
+        // Fallback: try HDR10 PQ
+        if (!m_hdrEnabled) {
+            for (const auto& f : m_swapChainSupport.formats) {
+                if (f.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 &&
+                    f.colorSpace == VK_COLOR_SPACE_HDR10_ST2084_EXT) {
+                    chosenFormat = f;
+                    m_hdrEnabled = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!m_hdrEnabled) {
+        // SDR fallback: prefer sRGB over UNORM for auto-gamma
+        for (const auto& f : m_swapChainSupport.formats)
+            if (f.format == VK_FORMAT_B8G8R8A8_SRGB &&
+                f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+                chosenFormat = f;
+                break;
+            }
+        if (chosenFormat.format == VK_FORMAT_UNDEFINED)
+            chosenFormat = m_swapChainSupport.formats[0];
+    }
+
+    m_colorSpace = chosenFormat.colorSpace;
     auto mode = choosePresentMode(m_swapChainSupport.presentModes);
     auto extent = chooseExtent(m_swapChainSupport.capabilities, m_window);
 
@@ -303,8 +362,8 @@ void Engine::createSwapChain() {
     sci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     sci.surface = m_surface;
     sci.minImageCount = imageCount;
-    sci.imageFormat = format.format;
-    sci.imageColorSpace = format.colorSpace;
+    sci.imageFormat = chosenFormat.format;
+    sci.imageColorSpace = chosenFormat.colorSpace;
     sci.imageExtent = extent;
     sci.imageArrayLayers = 1;
     sci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -330,7 +389,7 @@ void Engine::createSwapChain() {
     m_swapChainImages.resize(imageCount);
     vkGetSwapchainImagesKHR(m_device, m_swapChain, &imageCount, m_swapChainImages.data());
 
-    m_swapChainFormat = format.format;
+    m_swapChainFormat = chosenFormat.format;
     m_swapChainExtent = extent;
 
     // Image views
@@ -348,6 +407,10 @@ void Engine::createSwapChain() {
         if (vkCreateImageView(m_device, &vci, nullptr, &m_swapChainImageViews[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create image view");
     }
+
+    // Set HDR metadata if enabled
+    if (m_hdrEnabled)
+        setHdrMetadata();
 }
 
 void Engine::createRenderPass() {
@@ -434,7 +497,7 @@ void Engine::recreateSwapChain() {
     vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
     if (glfwCreateWindowSurface(m_instance, m_window, nullptr, &m_surface) != VK_SUCCESS)
         throw std::runtime_error("Failed to recreate window surface");
-    createSwapChain();
+    createSwapChain(m_hdrEnabled);
     createRenderPass();
     createFramebuffers();
 }
@@ -444,6 +507,47 @@ void Engine::cleanupSwapChain() {
     for (auto& iv : m_swapChainImageViews) vkDestroyImageView(m_device, iv, nullptr);
     vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
     vkDestroyRenderPass(m_device, m_renderPass, nullptr);
+}
+
+void Engine::setHdrMetadata() {
+    if (!m_hdrEnabled) return;
+
+    auto pfnSetHdrMetadata = (PFN_vkSetHdrMetadataEXT)
+        vkGetDeviceProcAddr(m_device, "vkSetHdrMetadataEXT");
+    if (!pfnSetHdrMetadata) return;
+
+    VkHdrMetadataEXT hdrMetadata{};
+    hdrMetadata.sType = VK_STRUCTURE_TYPE_HDR_METADATA_EXT;
+
+    // BT.2020 primaries
+    hdrMetadata.displayPrimaryRed.x   = 0.708f;
+    hdrMetadata.displayPrimaryRed.y   = 0.292f;
+    hdrMetadata.displayPrimaryGreen.x = 0.170f;
+    hdrMetadata.displayPrimaryGreen.y = 0.797f;
+    hdrMetadata.displayPrimaryBlue.x  = 0.131f;
+    hdrMetadata.displayPrimaryBlue.y  = 0.046f;
+    hdrMetadata.whitePoint.x          = 0.3127f;
+    hdrMetadata.whitePoint.y          = 0.3290f;
+
+    hdrMetadata.maxLuminance = m_hdrMaxLuminance;
+    hdrMetadata.minLuminance = 0.0f;
+    hdrMetadata.maxContentLightLevel = m_hdrMaxLuminance;
+    hdrMetadata.maxFrameAverageLightLevel = m_hdrMaxLuminance * 0.5f;
+
+    pfnSetHdrMetadata(m_device, 1, &m_swapChain, &hdrMetadata);
+}
+
+void Engine::toggleHdr() {
+    m_hdrEnabled = !m_hdrEnabled;
+    vkDeviceWaitIdle(m_device);
+    cleanupSwapChain();
+    vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+    if (glfwCreateWindowSurface(m_instance, m_window, nullptr, &m_surface) != VK_SUCCESS)
+        throw std::runtime_error("Failed to recreate window surface");
+    createSwapChain(m_hdrEnabled);
+    createRenderPass();
+    createFramebuffers();
+    if (m_hdrEnabled) setHdrMetadata();
 }
 
 bool Engine::beginFrame() {

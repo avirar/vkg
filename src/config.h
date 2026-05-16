@@ -14,6 +14,9 @@ struct Config {
     float hyperLoR = 1.0f, hyperLoG = 0.19f, hyperLoB = 0.065f;
     float hyperHiR = 0.6f, hyperHiG = 0.8f, hyperHiB = 1.0f;
 
+    bool hdr = true;
+    float hdrMaxLuminance = 1000.0f;
+
     static Config load();
 };
 

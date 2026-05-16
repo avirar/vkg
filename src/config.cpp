@@ -46,6 +46,8 @@ Config loadConfig(const std::string& path) {
             else if (key == "hyper_hi_r") cfg.hyperHiR = (float)std::atof(val.c_str());
             else if (key == "hyper_hi_g") cfg.hyperHiG = (float)std::atof(val.c_str());
             else if (key == "hyper_hi_b") cfg.hyperHiB = (float)std::atof(val.c_str());
+            else if (key == "hdr") cfg.hdr = !(val == "false" || val == "0" || val == "no");
+            else if (key == "hdr_max_luminance") cfg.hdrMaxLuminance = (float)std::atof(val.c_str());
         }
     }
     return cfg;
@@ -63,7 +65,8 @@ Config Config::load() {
             || cfg.pointScale != 1.0f
             || cfg.hypercolorMode != "color" || cfg.hyperIntensity != 8.0f
             || cfg.hyperLoR != 1.0f || cfg.hyperLoG != 0.19f || cfg.hyperLoB != 0.065f
-            || cfg.hyperHiR != 0.6f || cfg.hyperHiG != 0.8f || cfg.hyperHiB != 1.0f)
+            || cfg.hyperHiR != 0.6f || cfg.hyperHiG != 0.8f || cfg.hyperHiB != 1.0f
+            || !cfg.hdr || cfg.hdrMaxLuminance != 1000.0f)
             return cfg;
     }
     return Config{};

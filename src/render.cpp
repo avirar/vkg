@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <vector>
+#include <algorithm>
 
 Renderer::Renderer(Engine& engine) : m_engine(engine) {
     createCommandBuffers();
@@ -619,10 +620,51 @@ void Renderer::debugDump(VkFence fence) {
     vkWaitForFences(m_engine.device(), 1, &fence, VK_TRUE, UINT64_MAX);
 
     VkExtent2D extent = m_engine.extent();
-    VkDeviceSize size = extent.width * extent.height * 4;
+    VkFormat fmt = m_engine.swapChainFormat();
+    bool isFloat16 = (fmt == VK_FORMAT_R16G16B16A16_SFLOAT);
+    int bpp = isFloat16 ? 8 : 4;
+    VkDeviceSize size = extent.width * extent.height * bpp;
     void* data;
     vkMapMemory(m_engine.device(), m_ssMemory, 0, size, 0, &data);
-    uint8_t* pixels = (uint8_t*)data;
+
+    // Pre-convert float16 to uint8 so existing pixel code works unchanged
+    std::vector<uint8_t> converted;
+    uint8_t* pixels;
+    if (isFloat16) {
+        auto h2f = [](uint16_t h) -> float {
+            uint32_t sign = (h & 0x8000u) << 16;
+            int e = (h >> 10) & 0x1F;
+            uint32_t m = h & 0x3FFu;
+            if (e == 0) {
+                if (m == 0) { uint32_t f = sign; return *(float*)&f; }
+                e = 1; while ((m & 0x400u) == 0) { m <<= 1; e--; }
+                m &= 0x3FFu;
+            } else if (e == 31) {
+                uint32_t f = sign | 0x7F800000u | (m << 13);
+                return *(float*)&f;
+            }
+            e = e - 15 + 127;
+            uint32_t f = sign | ((uint32_t)e << 23) | (m << 13);
+            return *(float*)&f;
+        };
+        converted.resize(extent.width * extent.height * 4);
+        uint16_t* p16 = (uint16_t*)data;
+        for (uint32_t i = 0; i < extent.width * extent.height; i++) {
+            uint32_t base = i * 4;
+            // R16G16B16A16_SFLOAT is RGBA order in memory
+            float fr = h2f(p16[base + 0]);  // R
+            float fg = h2f(p16[base + 1]);  // G
+            float fb = h2f(p16[base + 2]);  // B
+            auto to8 = [](float f) { return (uint8_t)std::clamp(f * 255.0f, 0.0f, 255.0f); };
+            // Store in B G R A order matching the non-HDR layout
+            converted[i * 4 + 2] = to8(fr);
+            converted[i * 4 + 1] = to8(fg);
+            converted[i * 4 + 0] = to8(fb);
+        }
+        pixels = converted.data();
+    } else {
+        pixels = (uint8_t*)data;
+    }
 
     // Summary: count pixels per brightness level
     int counts[6] = {0,0,0,0,0,0};  // 0, 1-25, 26-50, 51-100, 101-180, 181-255
@@ -728,7 +770,10 @@ void Renderer::debugDump(VkFence fence) {
 
 void Renderer::initScreenshotBuffer() {
     VkExtent2D extent = m_engine.extent();
-    VkDeviceSize size = extent.width * extent.height * 4;
+    VkFormat fmt = m_engine.swapChainFormat();
+    int bpp = 4;
+    if (fmt == VK_FORMAT_R16G16B16A16_SFLOAT) bpp = 8;
+    VkDeviceSize size = extent.width * extent.height * bpp;
     m_engine.createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         m_ssBuffer, m_ssMemory);
@@ -739,16 +784,47 @@ void Renderer::saveScreenshot(VkFence fence) {
     vkWaitForFences(m_engine.device(), 1, &fence, VK_TRUE, UINT64_MAX);
 
     VkExtent2D extent = m_engine.extent();
-    VkDeviceSize size = extent.width * extent.height * 4;
+    VkFormat fmt = m_engine.swapChainFormat();
+    bool isFloat16 = (fmt == VK_FORMAT_R16G16B16A16_SFLOAT);
+    int bpp = isFloat16 ? 8 : 4;
+    VkDeviceSize size = extent.width * extent.height * bpp;
     void* data;
     vkMapMemory(m_engine.device(), m_ssMemory, 0, size, 0, &data);
 
-    uint8_t* pixels = (uint8_t*)data;
     std::vector<uint8_t> rgb(extent.width * extent.height * 3);
-    for (uint32_t i = 0; i < extent.width * extent.height; i++) {
-        rgb[i * 3 + 0] = pixels[i * 4 + 2];
-        rgb[i * 3 + 1] = pixels[i * 4 + 1];
-        rgb[i * 3 + 2] = pixels[i * 4 + 0];
+    if (isFloat16) {
+        auto h2f = [](uint16_t h) -> float {
+            uint32_t sign = (h & 0x8000u) << 16;
+            int e = (h >> 10) & 0x1F;
+            uint32_t m = h & 0x3FFu;
+            if (e == 0) {
+                if (m == 0) { uint32_t f = sign; return *(float*)&f; }
+                e = 1; while ((m & 0x400u) == 0) { m <<= 1; e--; }
+                m &= 0x3FFu;
+            } else if (e == 31) {
+                uint32_t f = sign | 0x7F800000u | (m << 13);
+                return *(float*)&f;
+            }
+            e = e - 15 + 127;
+            uint32_t f = sign | ((uint32_t)e << 23) | (m << 13);
+            return *(float*)&f;
+        };
+        uint16_t* p16 = (uint16_t*)data;
+        for (uint32_t i = 0; i < extent.width * extent.height; i++) {
+            uint32_t base = i * 4;
+            auto to8 = [](float f) { return (uint8_t)std::clamp(f * 255.0f, 0.0f, 255.0f); };
+            // R16G16B16A16_SFLOAT = RGBA order
+            rgb[i * 3 + 0] = to8(h2f(p16[base + 0])); // R
+            rgb[i * 3 + 1] = to8(h2f(p16[base + 1])); // G
+            rgb[i * 3 + 2] = to8(h2f(p16[base + 2])); // B
+        }
+    } else {
+        uint8_t* pixels = (uint8_t*)data;
+        for (uint32_t i = 0; i < extent.width * extent.height; i++) {
+            rgb[i * 3 + 0] = pixels[i * 4 + 2];
+            rgb[i * 3 + 1] = pixels[i * 4 + 1];
+            rgb[i * 3 + 2] = pixels[i * 4 + 0];
+        }
     }
 
     FILE* f = fopen("/tmp/vkg_capture.ppm", "wb");
