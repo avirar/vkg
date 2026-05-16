@@ -37,6 +37,7 @@ Config loadConfig(const std::string& path) {
             else if (key == "fullscreen") cfg.fullscreen = (val == "true" || val == "1" || val == "yes");
             else if (key == "target_fps") cfg.targetFps = std::atoi(val.c_str());
             else if (key == "point_scale") cfg.pointScale = (float)std::atof(val.c_str());
+            else if (key == "auto_point_scale") cfg.autoPointScale = !(val == "false" || val == "0" || val == "no");
             else if (key == "hypercolor_mode") cfg.hypercolorMode = val;
             else if (key == "hypercolor") cfg.hypercolorMode = (val == "true" || val == "1" || val == "yes") ? "color" : "off";
             else if (key == "hyper_intensity") cfg.hyperIntensity = (float)std::atof(val.c_str());
@@ -62,7 +63,7 @@ Config Config::load() {
     for (auto& c : candidates) {
         Config cfg = loadConfig(c);
         if (cfg.particles != 1000 || cfg.fullscreen || cfg.targetFps != 0
-            || cfg.pointScale != 1.0f
+            || cfg.pointScale != 1.0f || !cfg.autoPointScale
             || cfg.hypercolorMode != "color" || cfg.hyperIntensity != 8.0f
             || cfg.hyperLoR != 1.0f || cfg.hyperLoG != 0.19f || cfg.hyperLoB != 0.065f
             || cfg.hyperHiR != 0.6f || cfg.hyperHiG != 0.8f || cfg.hyperHiB != 1.0f

@@ -145,7 +145,16 @@
 - Command buffer index wrapped via `m_currentFrame % size`
 - Baseline: 1000→6246 FPS, 100K→1940, 500K→593, 1M→336, 2M→179, 5M→97
 - `benchmark.sh` for automated multi-count testing
-- **Commit**: `047fdb8`
+- **Commit**: `088c807`
+
+## Milestone 21 — Auto-Scaling Point Size ✅
+- `auto_point_scale = true` (config/ini): points shrink at higher particle counts
+- Formula: `scale = base / sqrt(max(1, count / 100000))` keeps fragment work constant
+- 100K→1x, 500K→0.45x, 1M→0.32x, 2M→0.22x, 5M→0.14x auto-adaptive
+- Perf: 500K 593→1253 (2.1x), 1M 336→889 (2.6x), 2M 179→623 (3.5x), 5M 97→371 (3.8x)
+- `point_scale` still applies as baseline; auto scaling can be disabled
+- Fragment/ROP confirmed as bottleneck (half point size ≈ 2x FPS)
+- **Commit**: (pending)
 
 ## Known Issues
 - HDR output not visible on virtual display (Xvfb) — requires physical HDR monitor

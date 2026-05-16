@@ -192,6 +192,12 @@ int main(int argc, char** argv) {
             // Sync particle count from simulation to compute
             compute.forceParticleCount(sim.state().particleCount);
 
+            // Auto-scale point size by particle count
+            if (cfg.autoPointScale) {
+                float autoScale = 1.0f / std::sqrt(std::max(1.0f, (float)compute.particleCount() / 100000.0f));
+                renderer.setPointScale(cfg.pointScale * autoScale);
+            }
+
             // Feed simulation state to compute shader
             const auto& s = sim.state();
             float orbitRad = s.orbitAngle * 3.14159265f / 180.0f;

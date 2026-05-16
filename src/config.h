@@ -8,6 +8,7 @@ struct Config {
     bool fullscreen = false;
     int targetFps = 0;
     float pointScale = 1.0f;
+    bool autoPointScale = true;
 
     std::string hypercolorMode = "color"; // "off", "color", "brightness"
     float hyperIntensity = 8.0f;
