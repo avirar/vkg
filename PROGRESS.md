@@ -133,7 +133,7 @@
 - Titlebar shows `compute.particleCount()` (what's actually rendered)
 - CLI `--particles` no longer capped at 32768
 - Tested up to 1M particles — no validation errors, no buffer overruns
-- **Commit**: (pending)
+- **Commit**: `0093727`
 
 ## Known Issues
 - HDR output not visible on virtual display (Xvfb) — requires physical HDR monitor
