@@ -5,6 +5,7 @@
 struct SimState {
     float orbitAngle = 0.0f;
     float wobblePhase = 0.0f;
+    float sunPulse = 1.0f;
     float singularityX = 0.0f, singularityY = 0.0f, singularityZ = 0.0f;
     float singularityVX = 0.0f, singularityVY = 0.0f, singularityVZ = 0.0f;
     float accumulatedTime = 0.0f;

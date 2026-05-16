@@ -176,7 +176,8 @@ int main(int argc, char** argv) {
             renderer.drawFrame(std::sin(orbitRad), std::cos(orbitRad),
                               std::sin(elevAngle), std::cos(elevAngle),
                               s.singularityX, s.singularityY, s.singularityZ,
-                              s.aspectRatioX, s.aspectRatioY);
+                              s.aspectRatioX, s.aspectRatioY,
+                              s.sunPulse);
             engine.endFrame();
 
             fpsFrames++;

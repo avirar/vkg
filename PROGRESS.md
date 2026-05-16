@@ -75,6 +75,12 @@
 - `point_scale` config option and `--point-scale` CLI flag
 - Multiplier on particle point size (0.1–10.0, default 1.0)
 - Passed through Renderer to ParticlePushConstants.pointSizeMult
+- **Commit**: `667f942`
+
+## Milestone 14 — Sun Glow Pulsing ✅
+- `sunPulse` in SimState oscillates 0.75–1.25 via sin(phase * 0.5)
+- All 7 sun layer alphas multiplied by sunPulse each frame
+- Creates gentle breathing effect on the singularity glow
 - **Commit**: (pending)
 
 ## Known Issues

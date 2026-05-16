@@ -370,7 +370,8 @@ void Renderer::createGraphicsPipeline() {
 void Renderer::drawFrame(float sinOrbit, float cosOrbit,
                           float sinElev, float cosElev,
                           float singX, float singY, float singZ,
-                          float aspectX, float aspectY) {
+                          float aspectX, float aspectY,
+                          float sunPulse) {
     uint32_t frameIdx = m_engine.currentFrame();
     VkCommandBuffer cmd = m_commandBuffers[frameIdx];
 
@@ -446,7 +447,7 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
         float layerSize = baseSize;
         spc.scaleX = layerSize * aspectX;
         spc.scaleY = layerSize;
-        spc.alpha = 0.25f;
+        spc.alpha = 0.25f * sunPulse;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
@@ -455,7 +456,7 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
         layerSize = baseSize * 0.4f;
         spc.scaleX = layerSize * aspectX;
         spc.scaleY = layerSize;
-        spc.alpha = 0.35f;
+        spc.alpha = 0.35f * sunPulse;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
@@ -464,7 +465,7 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
         layerSize *= 0.5f;
         spc.scaleX = layerSize * aspectX;
         spc.scaleY = layerSize;
-        spc.alpha = 0.45f;
+        spc.alpha = 0.45f * sunPulse;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
@@ -473,13 +474,13 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
         layerSize *= 0.5f;
         spc.scaleX = layerSize * aspectX;
         spc.scaleY = layerSize;
-        spc.alpha = 0.55f;
+        spc.alpha = 0.55f * sunPulse;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 
         // Layer 5: same size
-        spc.alpha = 0.65f;
+        spc.alpha = 0.65f * sunPulse;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
@@ -488,13 +489,13 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
         layerSize *= 0.5f;
         spc.scaleX = layerSize * aspectX;
         spc.scaleY = layerSize;
-        spc.alpha = 0.80f;
+        spc.alpha = 0.80f * sunPulse;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 
         // Layer 7: same size
-        spc.alpha = 1.0f;
+        spc.alpha = 1.0f * sunPulse;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);

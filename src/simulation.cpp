@@ -40,6 +40,7 @@ void Simulation::updateCamera(float dt) {
     if (m_state.orbitAngle < 0.0f) m_state.orbitAngle += 360.0f;
 
     m_state.wobblePhase += dt;
+    m_state.sunPulse = 1.0f + 0.25f * std::sin(m_state.wobblePhase * 0.5f);
 }
 
 void Simulation::updateSingularity(float dt) {

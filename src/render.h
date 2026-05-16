@@ -35,7 +35,8 @@ public:
     void drawFrame(float sinOrbit, float cosOrbit,
                    float sinElev, float cosElev,
                    float singX, float singY, float singZ,
-                   float aspectX, float aspectY);
+                   float aspectX, float aspectY,
+                   float sunPulse);
 
 private:
     void createCommandBuffers();
