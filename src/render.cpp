@@ -475,7 +475,7 @@ void Renderer::createOsdPipeline() {
 
     VkPushConstantRange pcr{};
     pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    pcr.size = 2 * sizeof(float); // vec2 invScreenSize
+    pcr.size = 3 * sizeof(float); // invScreenSize + scale
 
     VkPipelineLayoutCreateInfo plci{};
     plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -545,12 +545,14 @@ void Renderer::drawOsd(VkCommandBuffer cmd, uint32_t particleCount, float fps) {
     if (!m_osd || !m_osdPipeline) return;
 
     char text[256];
-    snprintf(text, sizeof(text), "%.0f fps | %u particles | ss=%.0f",
-             fps, particleCount, m_pointScale * (m_osd ? 1.0f : 1.0f));
+    snprintf(text, sizeof(text), "%.0f fps | %u particles | %.0fx",
+             fps, particleCount, m_pointScale);
 
-    unsigned char color[4] = {0, 255, 0, 255}; // green
-    char vertexBuf[50 * 4 * 16]; // enough for ~50 chars
-    int numQuads = stb_easy_font_print(10, 10, text, color, vertexBuf, sizeof(vertexBuf));
+    unsigned char color[4] = {0, 255, 0, 255};
+    char vertexBuf[50 * 4 * 16];
+    // stb_easy_font uses OpenGL-style coords (Y-up from bottom-left)
+    // Position at 30px from left, 40px from bottom (readable after 3x scale)
+    int numQuads = stb_easy_font_print(10, 13, text, color, vertexBuf, sizeof(vertexBuf));
 
     uint32_t charCount = (uint32_t)numQuads;
     VkDeviceSize vSize = charCount * 4 * 16;
@@ -562,12 +564,13 @@ void Renderer::drawOsd(VkCommandBuffer cmd, uint32_t particleCount, float fps) {
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_osdPipeline);
 
-    float invScreenSize[2] = {
+    float pushData[3] = {
         1.0f / (float)m_engine.extent().width,
-        1.0f / (float)m_engine.extent().height
+        1.0f / (float)m_engine.extent().height,
+        3.0f  // scale factor
     };
     vkCmdPushConstants(cmd, m_osdPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                       0, sizeof(invScreenSize), invScreenSize);
+                       0, sizeof(pushData), pushData);
 
     VkDeviceSize vOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &m_osdVertexBuffer, &vOffset);
