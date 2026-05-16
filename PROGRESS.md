@@ -163,6 +163,13 @@
 - **Early discard**: `if (d >= 1.0) discard` saves ROP for ~50% of fragments outside the point
 - **Brightness point size**: `gl_PointSize *= inBrightness` → dim particles cover fewer pixels
 - Perf: 100K 1955→3753 (+92%), 1M 889→1734 (+95%), 5M 371→535 (+44%)
+- **Commit**: `e11b454`
+
+## Milestone 23 — Tier 2 CPU Optimizations ✅
+- **P6**: Replaced `std::chrono::steady_clock::now()` with frame counter for compute seed — saves syscall/frame
+- **P9**: Precomputed `forceMult = gravity * dt * (1 + damping)` — compute shader does 3 fewer muls/particle
+- **P8**: Cached `autoPointScale` — `std::sqrt` only recomputes when count changes >10%
+- (P5 compute sqrt deferred — compute is not the bottleneck; P7 brightness point size done in Tier 1)
 - **Commit**: (pending)
 
 ## Known Issues

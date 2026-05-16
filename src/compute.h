@@ -8,6 +8,7 @@ struct ComputePushConstants {
     float dt;
     float gravity;
     float damping;
+    float forceMult;  // precomputed: gravity * dt * (1 + damping)
     uint32_t particleCount;
     float singularityX;
     float singularityY;
@@ -73,4 +74,5 @@ private:
 
     ComputePushConstants m_push{};
     VkPhysicalDeviceProperties m_deviceProps{};
+    uint32_t m_seedCounter = 0;
 };

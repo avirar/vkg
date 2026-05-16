@@ -192,10 +192,16 @@ int main(int argc, char** argv) {
             // Sync particle count from simulation to compute
             compute.forceParticleCount(sim.state().particleCount);
 
-            // Auto-scale point size by particle count
+            // Auto-scale point size by particle count (cache for stability)
             if (cfg.autoPointScale) {
-                float autoScale = 1.0f / std::sqrt(std::max(1.0f, (float)compute.particleCount() / 100000.0f));
-                renderer.setPointScale(cfg.pointScale * autoScale);
+                static float lastAutoParticles = 0;
+                static float lastAutoScale = 1.0f;
+                float pc = (float)compute.particleCount();
+                if (std::abs(pc - lastAutoParticles) / lastAutoParticles > 0.1f) {
+                    lastAutoParticles = pc;
+                    lastAutoScale = 1.0f / std::sqrt(std::max(1.0f, pc / 100000.0f));
+                }
+                renderer.setPointScale(cfg.pointScale * lastAutoScale);
             }
 
             // Feed simulation state to compute shader

@@ -2,7 +2,6 @@
 #include <cstring>
 #include <random>
 #include <cmath>
-#include <chrono>
 #include <iostream>
 
 Compute::Compute(Engine& engine) : m_engine(engine) {
@@ -247,6 +246,7 @@ void Compute::update(float dt, float sx, float sy, float sz,
     m_push.dt = dt;
     m_push.gravity = 0.01f;
     m_push.damping = 0.982f;
+    m_push.forceMult = m_push.gravity * dt * (1.0f + m_push.damping);
     m_push.particleCount = m_particleCount;
     m_push.singularityX = sx;
     m_push.singularityY = sy;
@@ -259,7 +259,7 @@ void Compute::update(float dt, float sx, float sy, float sz,
     m_push.cameraOffset = 0.6f;
     m_push.aspectRatioX = arX;
     m_push.aspectRatioY = arY;
-    m_push.seed = (uint32_t)std::chrono::steady_clock::now().time_since_epoch().count();
+    m_push.seed = ++m_seedCounter;
     m_push.debugMode = 0.0f;
     m_push.dbgScrX = 0.0f;
     m_push.dbgScrY = 0.0f;

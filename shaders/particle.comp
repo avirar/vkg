@@ -22,6 +22,7 @@ layout(push_constant) uniform PushConstants {
     float dt;
     float gravity;
     float damping;
+    float forceMult;
     uint particleCount;
     float singularity_x;
     float singularity_y;
@@ -68,11 +69,11 @@ void main() {
 
     vec3 d = vec3(pc.singularity_x, pc.singularity_y, pc.singularity_z) - vec3(p.pos_x, p.pos_y, p.pos_z);
     float distSq = dot(d, d) + 1e-10;
-    float force = pc.gravity / distSq * pc.dt;
+    float force = pc.forceMult / distSq;
 
-    p.vel_x = (d.x * force - p.vel_x) * pc.damping + d.x * force;
-    p.vel_y = (d.y * force - p.vel_y) * pc.damping + d.y * force;
-    p.vel_z = (d.z * force - p.vel_z) * pc.damping + d.z * force;
+    p.vel_x = d.x * force - p.vel_x * pc.damping;
+    p.vel_y = d.y * force - p.vel_y * pc.damping;
+    p.vel_z = d.z * force - p.vel_z * pc.damping;
 
     p.pos_x += p.vel_x;
     p.pos_y += p.vel_y;
