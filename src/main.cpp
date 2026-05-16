@@ -115,6 +115,16 @@ int main(int argc, char** argv) {
         textures.createProceduralTextures();
         renderer.setTextures(&textures);
 
+        // Batch all init transfers into single submission
+        {
+            VkCommandBuffer cmd = engine.beginSingleTimeCommands();
+            compute.recordInitialParticles(cmd);
+            renderer.recordSunGeometryInit(cmd);
+            engine.endSingleTimeCommands(cmd);
+            compute.cleanupInitStaging();
+            renderer.cleanupSunInitStaging();
+        }
+
         Audio audio;
         if (!debugMode) {
             // audio.load("glg.wav");

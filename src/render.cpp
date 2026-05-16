@@ -20,6 +20,7 @@ void Renderer::createPipelines() {
 }
 
 Renderer::~Renderer() {
+    cleanupSunInitStaging();
     vkDestroyPipeline(m_engine.device(), m_graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(m_engine.device(), m_graphicsPipelineLayout, nullptr);
     vkDestroyPipeline(m_engine.device(), m_sunPipeline, nullptr);
@@ -48,70 +49,66 @@ void Renderer::createCommandBuffers() {
 }
 
 void Renderer::createSunVertexBuffer() {
-    // Quad vertices: triangle strip covering [-1,1] x [-1,1]
-    float vertices[] = {
-        -1.0f, -1.0f,
-         1.0f, -1.0f,
-        -1.0f,  1.0f,
-         1.0f,  1.0f,
-    };
-    VkDeviceSize size = sizeof(vertices);
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingMemory;
-    m_engine.createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBuffer, stagingMemory);
-
-    void* data;
-    vkMapMemory(m_engine.device(), stagingMemory, 0, size, 0, &data);
-    memcpy(data, vertices, size);
-    vkUnmapMemory(m_engine.device(), stagingMemory);
-
+    VkDeviceSize size = 8 * sizeof(float);
     m_engine.createBuffer(size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         m_sunVertexBuffer, m_sunVertexMemory);
-
-    VkCommandBuffer cmd = m_engine.beginSingleTimeCommands();
-    VkBufferCopy copyRegion{};
-    copyRegion.size = size;
-    vkCmdCopyBuffer(cmd, stagingBuffer, m_sunVertexBuffer, 1, &copyRegion);
-    m_engine.endSingleTimeCommands(cmd);
-
-    vkDestroyBuffer(m_engine.device(), stagingBuffer, nullptr);
-    vkFreeMemory(m_engine.device(), stagingMemory, nullptr);
 }
 
 void Renderer::createSunIndexBuffer() {
-    // Two triangles covering [-1,1] x [-1,1] quad
-    // Vertices: 0=(-1,-1), 1=(1,-1), 2=(-1,1), 3=(1,1)
-    uint16_t indices[] = {0, 1, 2, 2, 1, 3};
-    VkDeviceSize size = sizeof(indices);
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingMemory;
-    m_engine.createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBuffer, stagingMemory);
-
-    void* data;
-    vkMapMemory(m_engine.device(), stagingMemory, 0, size, 0, &data);
-    memcpy(data, indices, size);
-    vkUnmapMemory(m_engine.device(), stagingMemory);
-
+    VkDeviceSize size = 6 * sizeof(uint16_t);
     m_engine.createBuffer(size,
         VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         m_sunIndexBuffer, m_sunIndexMemory);
+}
 
-    VkCommandBuffer cmd = m_engine.beginSingleTimeCommands();
-    VkBufferCopy copyRegion{};
-    copyRegion.size = size;
-    vkCmdCopyBuffer(cmd, stagingBuffer, m_sunIndexBuffer, 1, &copyRegion);
-    m_engine.endSingleTimeCommands(cmd);
+void Renderer::recordSunGeometryInit(VkCommandBuffer cmd) {
+    float vertices[] = { -1.0f,-1.0f, 1.0f,-1.0f, -1.0f,1.0f, 1.0f,1.0f };
+    VkDeviceSize vSize = sizeof(vertices);
 
-    vkDestroyBuffer(m_engine.device(), stagingBuffer, nullptr);
-    vkFreeMemory(m_engine.device(), stagingMemory, nullptr);
+    m_engine.createBuffer(vSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        m_sunInitStagingVB, m_sunInitStagingVBMem);
+    void* data;
+    vkMapMemory(m_engine.device(), m_sunInitStagingVBMem, 0, vSize, 0, &data);
+    memcpy(data, vertices, vSize);
+    vkUnmapMemory(m_engine.device(), m_sunInitStagingVBMem);
+    VkBufferCopy vCopy{};
+    vCopy.size = vSize;
+    vkCmdCopyBuffer(cmd, m_sunInitStagingVB, m_sunVertexBuffer, 1, &vCopy);
+
+    uint16_t indices[] = { 0,1,2, 2,1,3 };
+    VkDeviceSize iSize = sizeof(indices);
+
+    m_engine.createBuffer(iSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        m_sunInitStagingIB, m_sunInitStagingIBMem);
+    vkMapMemory(m_engine.device(), m_sunInitStagingIBMem, 0, iSize, 0, &data);
+    memcpy(data, indices, iSize);
+    vkUnmapMemory(m_engine.device(), m_sunInitStagingIBMem);
+    VkBufferCopy iCopy{};
+    iCopy.size = iSize;
+    vkCmdCopyBuffer(cmd, m_sunInitStagingIB, m_sunIndexBuffer, 1, &iCopy);
+}
+
+void Renderer::cleanupSunInitStaging() {
+    if (m_sunInitStagingVB) {
+        vkDestroyBuffer(m_engine.device(), m_sunInitStagingVB, nullptr);
+        m_sunInitStagingVB = VK_NULL_HANDLE;
+    }
+    if (m_sunInitStagingVBMem) {
+        vkFreeMemory(m_engine.device(), m_sunInitStagingVBMem, nullptr);
+        m_sunInitStagingVBMem = VK_NULL_HANDLE;
+    }
+    if (m_sunInitStagingIB) {
+        vkDestroyBuffer(m_engine.device(), m_sunInitStagingIB, nullptr);
+        m_sunInitStagingIB = VK_NULL_HANDLE;
+    }
+    if (m_sunInitStagingIBMem) {
+        vkFreeMemory(m_engine.device(), m_sunInitStagingIBMem, nullptr);
+        m_sunInitStagingIBMem = VK_NULL_HANDLE;
+    }
 }
 
 void Renderer::createSunPipeline() {
@@ -198,7 +195,7 @@ void Renderer::createSunPipeline() {
     dsc.dynamicStateCount = (uint32_t)dynamicStates.size();
     dsc.pDynamicStates = dynamicStates.data();
 
-    // Push constants for sun position/scale/alpha
+    // Push constants: center + aspectX + sunPulse + 7 layers (72 bytes)
     VkPushConstantRange pcr{};
     pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pcr.size = sizeof(SunPushConstants);
@@ -443,68 +440,22 @@ void Renderer::drawFrame(float sinOrbit, float cosOrbit,
         vkCmdBindVertexBuffers(cmd, 0, 1, &m_sunVertexBuffer, &offset);
         vkCmdBindIndexBuffer(cmd, m_sunIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-        // 7 layers matching original (glg.c:2377-2485): 0.20, 0.08, 0.04, 0.02, 0.02, 0.01, 0.01
-        float baseSize = 0.20f;
+        // 7 concentric layers, instanced via gl_InstanceIndex
         SunPushConstants spc{};
         spc.centerX = sunScrX;
         spc.centerY = sunScrY;
-
-        // Layer 1: 0.20
-        float layerSize = baseSize;
-        spc.scaleX = layerSize * aspectX;
-        spc.scaleY = layerSize;
-        spc.alpha = 0.25f * sunPulse;
+        spc.aspectX = aspectX;
+        spc.sunPulse = sunPulse;
+        spc.layerScales[0] = 0.20f; spc.layerAlphas[0] = 0.25f;
+        spc.layerScales[1] = 0.08f; spc.layerAlphas[1] = 0.35f;
+        spc.layerScales[2] = 0.04f; spc.layerAlphas[2] = 0.45f;
+        spc.layerScales[3] = 0.02f; spc.layerAlphas[3] = 0.55f;
+        spc.layerScales[4] = 0.02f; spc.layerAlphas[4] = 0.65f;
+        spc.layerScales[5] = 0.01f; spc.layerAlphas[5] = 0.80f;
+        spc.layerScales[6] = 0.01f; spc.layerAlphas[6] = 1.00f;
         vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(spc), &spc);
-        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
-
-        // Layer 2: 0.08
-        layerSize = baseSize * 0.4f;
-        spc.scaleX = layerSize * aspectX;
-        spc.scaleY = layerSize;
-        spc.alpha = 0.35f * sunPulse;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
-
-        // Layer 3: 0.04
-        layerSize *= 0.5f;
-        spc.scaleX = layerSize * aspectX;
-        spc.scaleY = layerSize;
-        spc.alpha = 0.45f * sunPulse;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
-
-        // Layer 4: 0.02
-        layerSize *= 0.5f;
-        spc.scaleX = layerSize * aspectX;
-        spc.scaleY = layerSize;
-        spc.alpha = 0.55f * sunPulse;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
-
-        // Layer 5: same size
-        spc.alpha = 0.65f * sunPulse;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
-
-        // Layer 6: 0.01
-        layerSize *= 0.5f;
-        spc.scaleX = layerSize * aspectX;
-        spc.scaleY = layerSize;
-        spc.alpha = 0.80f * sunPulse;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
-
-        // Layer 7: same size
-        spc.alpha = 1.0f * sunPulse;
-        vkCmdPushConstants(cmd, m_sunPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(spc), &spc);
-        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+        vkCmdDrawIndexed(cmd, 6, 7, 0, 0, 0);
     }
 
     // --- Draw particles ---

@@ -8,10 +8,10 @@
 struct SunPushConstants {
     float centerX;
     float centerY;
-    float scaleX;
-    float scaleY;
-    float alpha;
-    float _pad;
+    float aspectX;
+    float sunPulse;
+    float layerScales[7];
+    float layerAlphas[7];
 };
 
 struct ParticlePushConstants {
@@ -42,6 +42,8 @@ public:
                    float singX, float singY, float singZ,
                    float aspectX, float aspectY,
                    float sunPulse);
+    void recordSunGeometryInit(VkCommandBuffer cmd);
+    void cleanupSunInitStaging();
 
 private:
     void createCommandBuffers();
@@ -72,6 +74,10 @@ private:
     VkBuffer m_ssBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_ssMemory = VK_NULL_HANDLE;
     bool m_ssCaptured = false;
+    VkBuffer m_sunInitStagingVB = VK_NULL_HANDLE;
+    VkDeviceMemory m_sunInitStagingVBMem = VK_NULL_HANDLE;
+    VkBuffer m_sunInitStagingIB = VK_NULL_HANDLE;
+    VkDeviceMemory m_sunInitStagingIBMem = VK_NULL_HANDLE;
     bool m_debugMode = false;
     float m_pointScale = 1.0f;
     ParticlePushConstants m_ppc{};

@@ -176,6 +176,35 @@
 - **P13**: Cleaned particle buffer usage flags (removed `VERTEX_BUFFER_BIT`, `TRANSFER_SRC_BIT` from physics-only buffers)
 - (P11 double fence was false flag — already correct; P10 sun instancing deferred; P12 batch init deferred)
 - **Commit**: `40c8050`
+- **Note**: P13 was incorrect — particle buffers ARE used as vertex buffers (bindVertexBuffers in drawFrame). VERTEX_BUFFER_BIT restored in M27.
+
+## Milestone 25 — Sun Instancing (P10) ✅
+- Merged 7 sun draw calls into 1 instanced draw via `gl_InstanceIndex`
+- SunPushConstants (72 bytes): `centerX, centerY, aspectX, sunPulse, layerScales[7], layerAlphas[7]`
+- Vertex shader computes `scaleX = layerScales[i] * aspectX`, `alpha = layerAlphas[i] * sunPulse` per instance
+- `vkCmdDrawIndexed(cmd, 6, 7, 0, 0, 0)` replaces 7 separate push+draw sequences
+- Layer sizes: 0.20, 0.08, 0.04, 0.02, 0.02, 0.01, 0.01 (matching original)
+- **Commit**: (this commit)
+
+## Milestone 26 — Batch Init Transfers (P12) ✅
+- Merged 3 separate `beginSingleTimeCommands/endSingleTimeCommands` init submissions into 1
+- `Compute::recordInitialParticles(cmd)` — records particle buffer copies to shared cmd
+- `Renderer::recordSunGeometryInit(cmd)` — records sun VB + IB copies to shared cmd  
+- `Compute::cleanupInitStaging()` / `Renderer::cleanupSunInitStaging()` — deferred staging cleanup
+- `createSunVertexBuffer/IndexBuffer` simplified to buffer-only allocation (no staging in constructor)
+- Init pipe: 3 submits (sun VB + sun IB + particles) → 1 submit
+- **Commit**: (this commit)
+
+## Milestone 27 — Compute Sqrt Removal (P5) + VERTEX_BUFFER_BIT Fix ✅
+- Removed `sqrt()` from compute shader — replaced with squared velocity magnitude: `velMagSq * hyperIntensity * 100.0`
+- Compensating 100x factor for quadratic falloff at typical velocities (~0.01)
+- Restored `VK_BUFFER_USAGE_VERTEX_BUFFER_BIT` to particle buffers (M24 P13 incorrectly removed it)
+- Particle buffers need all 3 flags: STORAGE (compute r/w) | TRANSFER_DST (init copy) | VERTEX (bindVertexBuffers)
+- **Commit**: (this commit)
+
+## Performance (current)
+- 100K: 3875 FPS | 500K: 2325 FPS | 1M: 1757 FPS | 2M: 1149 FPS | 5M: 531 FPS
+- From baseline (97→531 at 5M): 5.5x cumulative improvement
 
 ## Known Issues
 - HDR output not visible on virtual display (Xvfb) — requires physical HDR monitor

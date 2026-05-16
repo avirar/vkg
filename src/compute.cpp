@@ -18,6 +18,7 @@ Compute::~Compute() {
         vkDestroyBuffer(m_engine.device(), m_particleBuffers[i], nullptr);
         vkFreeMemory(m_engine.device(), m_particleBufferMemories[i], nullptr);
     }
+    cleanupInitStaging();
 }
 
 void Compute::init(uint32_t particleCount) {
@@ -28,7 +29,6 @@ void Compute::init(uint32_t particleCount) {
     createPipeline();
     createParticleBuffers();
     createDescriptorSets();
-    initializeParticles();
 }
 
 void Compute::createDescriptorSetLayout() {
@@ -98,7 +98,7 @@ void Compute::createParticleBuffers() {
 
     for (int i = 0; i < 2; i++) {
         m_engine.createBuffer(bufferSize,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             m_particleBuffers[i], m_particleBufferMemories[i]);
     }
@@ -197,7 +197,7 @@ void Compute::createDescriptorSets() {
     }
 }
 
-void Compute::initializeParticles() {
+void Compute::recordInitialParticles(VkCommandBuffer cmd) {
     VkDeviceSize bufferSize = m_maxParticles * sizeof(Particle);
 
     VkBuffer stagingBuffer;
@@ -228,15 +228,14 @@ void Compute::initializeParticles() {
     }
     vkUnmapMemory(m_engine.device(), stagingMemory);
 
-    VkCommandBuffer cmd = m_engine.beginSingleTimeCommands();
     VkBufferCopy copyRegion{};
     copyRegion.size = bufferSize;
     vkCmdCopyBuffer(cmd, stagingBuffer, m_particleBuffers[0], 1, &copyRegion);
     vkCmdCopyBuffer(cmd, stagingBuffer, m_particleBuffers[1], 1, &copyRegion);
-    m_engine.endSingleTimeCommands(cmd);
 
-    vkDestroyBuffer(m_engine.device(), stagingBuffer, nullptr);
-    vkFreeMemory(m_engine.device(), stagingMemory, nullptr);
+    // Staging freed after batch submit (caller must wait)
+    m_initStagingBuf = stagingBuffer;
+    m_initStagingMem = stagingMemory;
 }
 
 void Compute::update(float dt, float sx, float sy, float sz,
@@ -303,6 +302,17 @@ void Compute::dispatch(VkCommandBuffer cmd) {
 
     // Toggle active set for next frame
     m_activeSet = 1 - m_activeSet;
+}
+
+void Compute::cleanupInitStaging() {
+    if (m_initStagingBuf) {
+        vkDestroyBuffer(m_engine.device(), m_initStagingBuf, nullptr);
+        m_initStagingBuf = VK_NULL_HANDLE;
+    }
+    if (m_initStagingMem) {
+        vkFreeMemory(m_engine.device(), m_initStagingMem, nullptr);
+        m_initStagingMem = VK_NULL_HANDLE;
+    }
 }
 
 void Compute::debugPlaceParticle(VkCommandBuffer cmd, float screenX, float screenY, float brightness) {

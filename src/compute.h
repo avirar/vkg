@@ -35,6 +35,8 @@ public:
     ~Compute();
 
     void init(uint32_t particleCount);
+    void recordInitialParticles(VkCommandBuffer cmd);
+    void cleanupInitStaging();
     void update(float dt, float singularityX, float singularityY, float singularityZ,
                 float sinOrbit, float cosOrbit, float sinElev, float cosElev,
                 float aspectRatioX, float aspectRatioY);
@@ -52,7 +54,6 @@ private:
     void createPipeline();
     void createParticleBuffers();
     void createDescriptorSets();
-    void initializeParticles();
 
     Engine& m_engine;
 
@@ -75,4 +76,6 @@ private:
     ComputePushConstants m_push{};
     VkPhysicalDeviceProperties m_deviceProps{};
     uint32_t m_seedCounter = 0;
+    VkBuffer m_initStagingBuf = VK_NULL_HANDLE;
+    VkDeviceMemory m_initStagingMem = VK_NULL_HANDLE;
 };
