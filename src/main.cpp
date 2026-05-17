@@ -190,6 +190,7 @@ int main(int argc, char** argv) {
             }
             if (!debugMode && !benchmarkMode && keyPressed(window, GLFW_KEY_H, prevKeys)) {
                 engine.toggleHdr();
+                renderer.recreatePipelines();
                 std::cout << "[HDR] " << (engine.hdrEnabled() ? "enabled" : "disabled") << std::endl;
                 continue; // skip frame — need to rebuild command buffers
             }
@@ -220,7 +221,7 @@ int main(int argc, char** argv) {
                 static float lastAutoParticles = 0;
                 static float lastAutoScale = 1.0f;
                 float pc = (float)compute.particleCount();
-                if (std::abs(pc - lastAutoParticles) / lastAutoParticles > 0.1f) {
+                if (lastAutoParticles == 0.0f || std::abs(pc - lastAutoParticles) / lastAutoParticles > 0.1f) {
                     lastAutoParticles = pc;
                     lastAutoScale = 1.0f / std::sqrt(std::max(1.0f, pc / 100000.0f));
                 }
@@ -277,6 +278,7 @@ int main(int argc, char** argv) {
         }
 
         engine.waitIdle();
+        g_engine = nullptr;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         glfwDestroyWindow(window);

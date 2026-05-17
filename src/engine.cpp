@@ -524,11 +524,13 @@ void Engine::createSyncObjects() {
 
     VkSemaphoreCreateInfo si{};
     si.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    vkCreateSemaphore(m_device, &si, nullptr, &m_acquireSemaphore);
+    if (vkCreateSemaphore(m_device, &si, nullptr, &m_acquireSemaphore) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create acquire semaphore");
 
     m_renderFinishedSemaphores.resize(semCount);
     for (uint32_t i = 0; i < semCount; i++) {
-        vkCreateSemaphore(m_device, &si, nullptr, &m_renderFinishedSemaphores[i]);
+        if (vkCreateSemaphore(m_device, &si, nullptr, &m_renderFinishedSemaphores[i]) != VK_SUCCESS)
+            throw std::runtime_error("Failed to create render finished semaphore");
     }
 
     VkFenceCreateInfo fi{};
@@ -536,7 +538,8 @@ void Engine::createSyncObjects() {
     fi.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkCreateFence(m_device, &fi, nullptr, &m_inFlightFences[i]);
+        if (vkCreateFence(m_device, &fi, nullptr, &m_inFlightFences[i]) != VK_SUCCESS)
+            throw std::runtime_error("Failed to create in-flight fence");
     }
 }
 

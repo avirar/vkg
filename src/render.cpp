@@ -10,6 +10,23 @@
 #define STB_EASY_FONT_IMPLEMENTATION
 #include "../third_party/stb_easy_font.h"
 
+static float halfToFloat(uint16_t h) {
+    uint32_t sign = (h & 0x8000u) << 16;
+    int e = (h >> 10) & 0x1F;
+    uint32_t m = h & 0x3FFu;
+    if (e == 0) {
+        if (m == 0) { uint32_t f = sign; float result; std::memcpy(&result, &f, sizeof(float)); return result; }
+        e = 1; while ((m & 0x400u) == 0) { m <<= 1; e--; }
+        m &= 0x3FFu;
+    } else if (e == 31) {
+        uint32_t f = sign | 0x7F800000u | (m << 13);
+        float result; std::memcpy(&result, &f, sizeof(float)); return result;
+    }
+    e = e - 15 + 127;
+    uint32_t f = sign | ((uint32_t)e << 23) | (m << 13);
+    float result; std::memcpy(&result, &f, sizeof(float)); return result;
+}
+
 Renderer::Renderer(Engine& engine) : m_engine(engine) {
     createCommandBuffers();
     createSunVertexBuffer();
@@ -24,6 +41,15 @@ void Renderer::createPipelines() {
     createOsdPipeline();
 }
 
+void Renderer::destroyPipelines() {
+    if (m_graphicsPipeline) { vkDestroyPipeline(m_engine.device(), m_graphicsPipeline, nullptr); m_graphicsPipeline = VK_NULL_HANDLE; }
+    if (m_graphicsPipelineLayout) { vkDestroyPipelineLayout(m_engine.device(), m_graphicsPipelineLayout, nullptr); m_graphicsPipelineLayout = VK_NULL_HANDLE; }
+    if (m_sunPipeline) { vkDestroyPipeline(m_engine.device(), m_sunPipeline, nullptr); m_sunPipeline = VK_NULL_HANDLE; }
+    if (m_sunPipelineLayout) { vkDestroyPipelineLayout(m_engine.device(), m_sunPipelineLayout, nullptr); m_sunPipelineLayout = VK_NULL_HANDLE; }
+    if (m_osdPipeline) { vkDestroyPipeline(m_engine.device(), m_osdPipeline, nullptr); m_osdPipeline = VK_NULL_HANDLE; }
+    if (m_osdPipelineLayout) { vkDestroyPipelineLayout(m_engine.device(), m_osdPipelineLayout, nullptr); m_osdPipelineLayout = VK_NULL_HANDLE; }
+}
+
 Renderer::~Renderer() {
     cleanupSunInitStaging();
     vkDestroyPipeline(m_engine.device(), m_graphicsPipeline, nullptr);
@@ -36,8 +62,10 @@ Renderer::~Renderer() {
     vkFreeMemory(m_engine.device(), m_sunIndexMemory, nullptr);
     if (m_osdPipeline) vkDestroyPipeline(m_engine.device(), m_osdPipeline, nullptr);
     if (m_osdPipelineLayout) vkDestroyPipelineLayout(m_engine.device(), m_osdPipelineLayout, nullptr);
-    if (m_osdVertexBuffer) vkDestroyBuffer(m_engine.device(), m_osdVertexBuffer, nullptr);
-    if (m_osdVertexMemory) vkFreeMemory(m_engine.device(), m_osdVertexMemory, nullptr);
+    for (size_t i = 0; i < m_osdVertexBuffers.size(); i++) {
+        vkDestroyBuffer(m_engine.device(), m_osdVertexBuffers[i], nullptr);
+        vkFreeMemory(m_engine.device(), m_osdVertexMemories[i], nullptr);
+    }
     if (m_osdIndexBuffer) vkDestroyBuffer(m_engine.device(), m_osdIndexBuffer, nullptr);
     if (m_osdIndexMemory) vkFreeMemory(m_engine.device(), m_osdIndexMemory, nullptr);
     if (m_ssBuffer) vkDestroyBuffer(m_engine.device(), m_ssBuffer, nullptr);
@@ -510,15 +538,19 @@ void Renderer::createOsdPipeline() {
     vkDestroyShaderModule(m_engine.device(), vertMod, nullptr);
     vkDestroyShaderModule(m_engine.device(), fragMod, nullptr);
 
-    // Create OSD buffers (max 512 chars = 2048 vertices, 3072 indices)
+    // Create OSD buffers — per-frame-in-flight vertex buffers (max 512 chars)
     const uint32_t maxChars = 512;
     VkDeviceSize vSize = maxChars * 4 * 16; // 4 verts/char, 16 bytes/vert
     VkDeviceSize iSize = maxChars * 6 * sizeof(uint16_t);
 
-    m_engine.createBuffer(vSize,
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        m_osdVertexBuffer, m_osdVertexMemory);
+    m_osdVertexBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    m_osdVertexMemories.resize(MAX_FRAMES_IN_FLIGHT);
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        m_engine.createBuffer(vSize,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            m_osdVertexBuffers[i], m_osdVertexMemories[i]);
+    }
 
     m_engine.createBuffer(iSize,
         VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
@@ -570,10 +602,11 @@ void Renderer::drawOsd(VkCommandBuffer cmd, uint32_t particleCount, float fps) {
     VkDeviceSize totalSize = sz1 + sz2;
     if (totalSize == 0) return;
 
+    uint32_t osdIdx = m_engine.currentFrame() % (uint32_t)m_osdVertexBuffers.size();
     void* data;
-    vkMapMemory(m_engine.device(), m_osdVertexMemory, 0, totalSize, 0, &data);
+    vkMapMemory(m_engine.device(), m_osdVertexMemories[osdIdx], 0, totalSize, 0, &data);
     memcpy(data, vertexBuf, totalSize);
-    vkUnmapMemory(m_engine.device(), m_osdVertexMemory);
+    vkUnmapMemory(m_engine.device(), m_osdVertexMemories[osdIdx]);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_osdPipeline);
 
@@ -586,7 +619,7 @@ void Renderer::drawOsd(VkCommandBuffer cmd, uint32_t particleCount, float fps) {
                        0, sizeof(pushData), pushData);
 
     VkDeviceSize vOffset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &m_osdVertexBuffer, &vOffset);
+    vkCmdBindVertexBuffers(cmd, 0, 1, &m_osdVertexBuffers[osdIdx], &vOffset);
     vkCmdBindIndexBuffer(cmd, m_osdIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
     vkCmdDrawIndexed(cmd, (c1 + c2) * 6, 1, 0, 0, 0);
 }
@@ -714,8 +747,16 @@ void Renderer::drawFrame(const SimState& state, float aspectX, float aspectY) {
     vkCmdEndRenderPass(cmd);
 
     if (!m_ssCaptured) {
-        VkImage srcImage = m_engine.currentSwapchainImage();
         VkExtent2D ext = m_engine.extent();
+        if (ext.width != m_ssExtent.width || ext.height != m_ssExtent.height) {
+            vkDestroyBuffer(m_engine.device(), m_ssBuffer, nullptr);
+            vkFreeMemory(m_engine.device(), m_ssMemory, nullptr);
+            m_ssBuffer = VK_NULL_HANDLE;
+            m_ssMemory = VK_NULL_HANDLE;
+            initScreenshotBuffer();
+        }
+
+        VkImage srcImage = m_engine.currentSwapchainImage();
 
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -771,7 +812,6 @@ void Renderer::drawFrame(const SimState& state, float aspectX, float aspectY) {
     si.signalSemaphoreCount = 1;
     si.pSignalSemaphores = &signalSem;
 
-    vkResetFences(m_engine.device(), 1, &fence);
     VkResult result = vkQueueSubmit(m_engine.graphicsQueue(), 1, &si, fence);
     if (result != VK_SUCCESS)
         throw std::runtime_error("Failed to submit draw command buffer: code " + std::to_string(result));
@@ -819,29 +859,13 @@ void Renderer::debugDump(VkFence fence) {
     std::vector<uint8_t> converted;
     uint8_t* pixels;
     if (isFloat16) {
-        auto h2f = [](uint16_t h) -> float {
-            uint32_t sign = (h & 0x8000u) << 16;
-            int e = (h >> 10) & 0x1F;
-            uint32_t m = h & 0x3FFu;
-            if (e == 0) {
-                if (m == 0) { uint32_t f = sign; return *(float*)&f; }
-                e = 1; while ((m & 0x400u) == 0) { m <<= 1; e--; }
-                m &= 0x3FFu;
-            } else if (e == 31) {
-                uint32_t f = sign | 0x7F800000u | (m << 13);
-                return *(float*)&f;
-            }
-            e = e - 15 + 127;
-            uint32_t f = sign | ((uint32_t)e << 23) | (m << 13);
-            return *(float*)&f;
-        };
         converted.resize(extent.width * extent.height * 4);
         uint16_t* p16 = (uint16_t*)data;
         for (uint32_t i = 0; i < extent.width * extent.height; i++) {
             uint32_t base = i * 4;
-            float fr = h2f(p16[base + 0]);
-            float fg = h2f(p16[base + 1]);
-            float fb = h2f(p16[base + 2]);
+            float fr = halfToFloat(p16[base + 0]);
+            float fg = halfToFloat(p16[base + 1]);
+            float fb = halfToFloat(p16[base + 2]);
             auto to8 = [](float f) { return (uint8_t)std::clamp(f * 255.0f, 0.0f, 255.0f); };
             converted[i * 4 + 2] = to8(fr);
             converted[i * 4 + 1] = to8(fg);
@@ -953,6 +977,7 @@ void Renderer::initScreenshotBuffer() {
     m_engine.createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         m_ssBuffer, m_ssMemory);
+    m_ssExtent = extent;
 }
 
 void Renderer::saveScreenshot(VkFence fence) {
@@ -969,29 +994,13 @@ void Renderer::saveScreenshot(VkFence fence) {
 
     std::vector<uint8_t> rgb(extent.width * extent.height * 3);
     if (isFloat16) {
-        auto h2f = [](uint16_t h) -> float {
-            uint32_t sign = (h & 0x8000u) << 16;
-            int e = (h >> 10) & 0x1F;
-            uint32_t m = h & 0x3FFu;
-            if (e == 0) {
-                if (m == 0) { uint32_t f = sign; return *(float*)&f; }
-                e = 1; while ((m & 0x400u) == 0) { m <<= 1; e--; }
-                m &= 0x3FFu;
-            } else if (e == 31) {
-                uint32_t f = sign | 0x7F800000u | (m << 13);
-                return *(float*)&f;
-            }
-            e = e - 15 + 127;
-            uint32_t f = sign | ((uint32_t)e << 23) | (m << 13);
-            return *(float*)&f;
-        };
         uint16_t* p16 = (uint16_t*)data;
         for (uint32_t i = 0; i < extent.width * extent.height; i++) {
             uint32_t base = i * 4;
             auto to8 = [](float f) { return (uint8_t)std::clamp(f * 255.0f, 0.0f, 255.0f); };
-            rgb[i * 3 + 0] = to8(h2f(p16[base + 0]));
-            rgb[i * 3 + 1] = to8(h2f(p16[base + 1]));
-            rgb[i * 3 + 2] = to8(h2f(p16[base + 2]));
+            rgb[i * 3 + 0] = to8(halfToFloat(p16[base + 0]));
+            rgb[i * 3 + 1] = to8(halfToFloat(p16[base + 1]));
+            rgb[i * 3 + 2] = to8(halfToFloat(p16[base + 2]));
         }
     } else {
         uint8_t* pixels = (uint8_t*)data;

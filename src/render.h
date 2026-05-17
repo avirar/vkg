@@ -39,6 +39,7 @@ public:
 
     void setCompute(Compute* compute) { m_compute = compute; }
     void setTextures(Textures* tex) { m_textures = tex; createPipelines(); }
+    void recreatePipelines() { destroyPipelines(); createPipelines(); }
     void setDebug(bool d) { m_debugMode = d; }
     void setPointScale(float s) { m_pointScale = s; }
     void setParticleColors(const Config& cfg);
@@ -52,6 +53,7 @@ public:
 private:
     void createCommandBuffers();
     void createPipelines();
+    void destroyPipelines();
     void createGraphicsPipeline();
     void createSunPipeline();
     void createSunVertexBuffer();
@@ -78,8 +80,8 @@ private:
     // OSD pipeline
     VkPipelineLayout m_osdPipelineLayout = VK_NULL_HANDLE;
     VkPipeline m_osdPipeline = VK_NULL_HANDLE;
-    VkBuffer m_osdVertexBuffer = VK_NULL_HANDLE;
-    VkDeviceMemory m_osdVertexMemory = VK_NULL_HANDLE;
+    std::vector<VkBuffer> m_osdVertexBuffers;
+    std::vector<VkDeviceMemory> m_osdVertexMemories;
     VkBuffer m_osdIndexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_osdIndexMemory = VK_NULL_HANDLE;
     bool m_osd = false;
@@ -91,6 +93,7 @@ private:
 
     VkBuffer m_ssBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_ssMemory = VK_NULL_HANDLE;
+    VkExtent2D m_ssExtent{};
     bool m_ssCaptured = false;
     VkBuffer m_sunInitStagingVB = VK_NULL_HANDLE;
     VkDeviceMemory m_sunInitStagingVBMem = VK_NULL_HANDLE;
