@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <cstdlib>
 #include <unordered_map>
 
 static Engine* g_engine = nullptr;
@@ -42,18 +43,18 @@ int main(int argc, char** argv) {
         if (std::strcmp(argv[i], "--debug") == 0) {
             debugMode = true;
         } else if (std::strcmp(argv[i], "--particles") == 0 && i + 1 < argc) {
-            cfg.particles = std::atoi(argv[++i]);
+            cfg.particles = (int)std::strtol(argv[++i], nullptr, 10);
             if (cfg.particles < 2) cfg.particles = 2;
         } else if (std::strcmp(argv[i], "--fullscreen") == 0) {
             startFullscreen = true;
         } else if (std::strcmp(argv[i], "--point-scale") == 0 && i + 1 < argc) {
-            cfg.pointScale = (float)std::atof(argv[++i]);
+            cfg.pointScale = std::strtof(argv[++i], nullptr);
             if (cfg.pointScale < 0.1f) cfg.pointScale = 0.1f;
             if (cfg.pointScale > 10.0f) cfg.pointScale = 10.0f;
         } else if (std::strcmp(argv[i], "--benchmark") == 0) {
             benchmarkMode = true;
             if (i + 1 < argc && argv[i + 1][0] != '-') {
-                benchmarkSeconds = std::atoi(argv[++i]);
+                benchmarkSeconds = (int)std::strtol(argv[++i], nullptr, 10);
                 if (benchmarkSeconds < 1) benchmarkSeconds = 1;
             }
         } else if (std::strcmp(argv[i], "--osd") == 0) {
