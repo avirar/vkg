@@ -63,39 +63,111 @@ static HWND createFullscreenWindow(HINSTANCE hInstance, int nCmdShow) {
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow) {
     std::string args(lpCmdLine);
+
+    // Trim leading/trailing whitespace
+    while (!args.empty() && (args.front() == ' ' || args.front() == '\t')) args.erase(0, 1);
+    while (!args.empty() && (args.back() == ' ' || args.back() == '\t')) args.pop_back();
+
+    // Tokenize: get first token (the mode flag) and the rest
+    std::string token, rest;
+    size_t sp = args.find_first_of(" \t");
+    if (sp != std::string::npos) {
+        token = args.substr(0, sp);
+        rest = args.substr(sp);
+        while (!rest.empty() && (rest.front() == ' ' || rest.front() == '\t')) rest.erase(0, 1);
+    } else {
+        token = args;
+    }
+
+    // Normalize: strip leading / or - then lowercase
+    std::string mode;
+    if (!token.empty() && (token[0] == '/' || token[0] == '-'))
+        mode = token.substr(1);
+    else
+        mode = token;
+    for (auto& c : mode) c = static_cast<char>(std::tolower(c));
+
+    bool isConfig = false;
     bool isPreview = false;
     HWND parentHwnd = nullptr;
 
-    // Parse command-line arguments
-    if (!args.empty()) {
-        // Windows passes arguments with leading '/'
-        if (args[0] == '/' || args[0] == '-') {
-            char mode = static_cast<char>(std::tolower(args[1]));
-            if (mode == 's') {
-                // Run screensaver fullscreen
-            } else if (mode == 'p') {
-                // Preview mode: render into parent window
-                isPreview = true;
-                std::string hwndStr = args.substr(3);
-                parentHwnd = reinterpret_cast<HWND>(static_cast<UINT_PTR>(std::stoull(hwndStr)));
-            } else if (mode == 'c') {
-                // Configure
-                MessageBoxA(nullptr, "vkg — Vulkan GL Gravitation\n\nConfigure via vkg.ini in the same directory.",
-                           "vkg Settings", MB_OK | MB_ICONINFORMATION);
-                return 0;
-            } else if (mode == 'a') {
-                // Change password (legacy, ignored)
-                return 0;
-            }
-        }
+    if (mode == "s") {
+        // Run screensaver fullscreen
+    } else if (mode == "p") {
+        // Preview: render as child of supplied HWND
+        isPreview = true;
+        parentHwnd = reinterpret_cast<HWND>(static_cast<UINT_PTR>(
+            rest.empty() ? 0 : std::stoull(rest)));
+    } else if (mode == "c" || mode.empty()) {
+        // Configure (also default when no args per MS spec)
+        isConfig = true;
+    } else if (mode == "a") {
+        // Change password (legacy, ignored)
+        return 0;
+    }
+
+    if (isConfig) {
+        // Load config to show current values
+        Config cfg = Config::load();
+        char msg[512];
+        snprintf(msg, sizeof(msg),
+            "vkg — Vulkan GL Gravitation\n\n"
+            "Configure via vkg.ini in the screensaver directory.\n\n"
+            "Current settings:\n"
+            "  particles: %d\n"
+            "  hypercolor_velocity_mode: %s\n"
+            "  hypercolor_distance_mode: %s\n"
+            "  velocity intensity: %.1f\n"
+            "  distance intensity: %.1f\n"
+            "  blend_alpha_scale: %.2f\n"
+            "  color_cap: %.2f\n"
+            "  singularity_count: %d\n"
+            "  target_fps: %d (0=auto)\n"
+            "  HDR: %s",
+            cfg.particles,
+            cfg.hypercolorVelocityMode.c_str(),
+            cfg.hypercolorDistanceMode.c_str(),
+            cfg.hyperVelocityIntensity,
+            cfg.hyperDistanceIntensity,
+            cfg.blendAlphaScale,
+            cfg.colorCap,
+            cfg.singularityCount,
+            cfg.targetFps,
+            cfg.hdr ? "on" : "off");
+        MessageBoxA(nullptr, msg, "vkg Settings", MB_OK | MB_ICONINFORMATION);
+        return 0;
     }
 
     HWND hwnd;
     RECT windowRect;
 
     if (isPreview) {
-        hwnd = parentHwnd;
-        GetClientRect(hwnd, &windowRect);
+        // Per MS docs: create child window inside parent's client area
+        GetClientRect(parentHwnd, &windowRect);
+        int pw = windowRect.right - windowRect.left;
+        int ph = windowRect.bottom - windowRect.top;
+        if (pw <= 0) pw = 160;
+        if (ph <= 0) ph = 120;
+
+        // Register class for child preview window
+        WNDCLASSEXW pwc = {};
+        pwc.cbSize = sizeof(pwc);
+        pwc.style = CS_HREDRAW | CS_VREDRAW;
+        pwc.lpfnWndProc = WndProc;
+        pwc.hInstance = hInstance;
+        pwc.hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
+        pwc.lpszClassName = L"vkgPreviewClass";
+        RegisterClassExW(&pwc);
+
+        hwnd = CreateWindowExW(0, L"vkgPreviewClass", L"vkgPreview",
+            WS_CHILD | WS_VISIBLE, 0, 0, pw, ph,
+            parentHwnd, nullptr, hInstance, nullptr);
+        if (!hwnd) return 1;
+
+        windowRect.left = 0;
+        windowRect.top = 0;
+        windowRect.right = pw;
+        windowRect.bottom = ph;
     } else {
         hwnd = createFullscreenWindow(hInstance, nCmdShow);
         if (!hwnd) return 1;
@@ -226,14 +298,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow
         engine.waitIdle();
     } catch (const std::exception& e) {
         MessageBoxA(nullptr, e.what(), "vkg Error", MB_OK | MB_ICONERROR);
-        if (!isPreview) {
+        if (isPreview) {
+            DestroyWindow(hwnd);
+        } else {
             ShowCursor(TRUE);
             DestroyWindow(hwnd);
         }
         return 1;
     }
 
-    if (!isPreview) {
+    if (isPreview) {
+        DestroyWindow(hwnd);
+    } else {
         ShowCursor(TRUE);
         DestroyWindow(hwnd);
     }
