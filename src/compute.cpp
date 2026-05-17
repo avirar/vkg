@@ -303,6 +303,9 @@ void Compute::update(float dt, uint32_t singCount, const SingData* singData,
 }
 
 void Compute::dispatch(VkCommandBuffer cmd) {
+    // Paused — don't modify particle buffers; vertex shader re-reads frozen data
+    if (m_push.dt == 0.0f) return;
+
     VkDescriptorSet set = (m_activeSet == 0) ? m_descriptorSetAB : m_descriptorSetBA;
     m_outputIndex = (m_activeSet == 0) ? 1 : 0;
 

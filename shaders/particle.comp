@@ -103,12 +103,7 @@ void main() {
     float depth = pc.cos_elev * ryZ + pc.sin_elev * p.pos_y;
     float elevY = pc.cos_elev * p.pos_y - pc.sin_elev * ryZ;
 
-    float denom = depth + pc.cameraOffset;
-    if (denom < 0.001) {
-        p.brightness = 0.0;
-        particlesOut[idx] = p;
-        return;
-    }
+    float denom = max(depth + pc.cameraOffset, 0.001);
     float persp = pc.cameraDist / denom;
 
     p.screen_x = ryX * persp * pc.aspectRatioX;
