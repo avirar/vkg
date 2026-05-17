@@ -24,6 +24,24 @@ Compute::~Compute() {
 }
 
 void Compute::init(uint32_t particleCount) {
+    if (particleCount < 1)
+        throw std::runtime_error("Particle count must be >= 1");
+    if (!m_particleBuffers.empty()) {
+        cleanupInitStaging();
+        vkDeviceWaitIdle(m_engine.device());
+        if (m_pipeline) vkDestroyPipeline(m_engine.device(), m_pipeline, nullptr);
+        if (m_pipelineLayout) vkDestroyPipelineLayout(m_engine.device(), m_pipelineLayout, nullptr);
+        if (m_descriptorSetLayout) vkDestroyDescriptorSetLayout(m_engine.device(), m_descriptorSetLayout, nullptr);
+        if (m_descriptorPool) vkDestroyDescriptorPool(m_engine.device(), m_descriptorPool, nullptr);
+        for (size_t i = 0; i < m_particleBuffers.size(); i++) {
+            vkDestroyBuffer(m_engine.device(), m_particleBuffers[i], nullptr);
+            vkFreeMemory(m_engine.device(), m_particleBufferMemories[i], nullptr);
+        }
+        m_particleBuffers.clear();
+        m_particleBufferMemories.clear();
+        if (m_singBuffer) vkDestroyBuffer(m_engine.device(), m_singBuffer, nullptr);
+        if (m_singMemory) vkFreeMemory(m_engine.device(), m_singMemory, nullptr);
+    }
     m_particleCount = particleCount;
     m_maxParticles = particleCount;
     createDescriptorSetLayout();
@@ -256,6 +274,8 @@ void Compute::update(float dt, uint32_t singCount, const SingData* singData,
                      float comX, float comY, float comZ,
                      float sinOrbit, float cosOrbit, float sinElev, float cosElev,
                      float arX, float arY) {
+    if (!singData || singCount == 0) return;
+
     m_push.dt = dt;
     m_push.gravity = 0.01f;
     m_push.damping = 0.982f;
@@ -288,6 +308,20 @@ void Compute::dispatch(VkCommandBuffer cmd) {
 
     // Upload singularity positions inline (snapshotted at record time)
     vkCmdUpdateBuffer(cmd, m_singBuffer, 0, sizeof(m_singData), m_singData);
+
+    VkBufferMemoryBarrier singBarrier{};
+    singBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    singBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    singBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    singBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    singBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    singBarrier.buffer = m_singBuffer;
+    singBarrier.offset = 0;
+    singBarrier.size = VK_WHOLE_SIZE;
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0, 0, nullptr, 1, &singBarrier, 0, nullptr);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipeline);
 

@@ -80,7 +80,7 @@ void main() {
 
     for (uint s = 0u; s < pc.singCount; s++) {
         vec3 ds = singBuf.singPositions[s].xyz - vec3(p.pos_x, p.pos_y, p.pos_z);
-        float distSq = dot(ds, ds) + 1e-10;
+        float distSq = dot(ds, ds) + 1e-4;
         totalForce += ds * pc.forceMult / distSq;
         if (distSq < nearestDistSq) nearestDistSq = distSq;
     }
@@ -103,17 +103,22 @@ void main() {
     float depth = pc.cos_elev * ryZ + pc.sin_elev * p.pos_y;
     float elevY = pc.cos_elev * p.pos_y - pc.sin_elev * ryZ;
 
-    float persp = pc.cameraDist / (depth + pc.cameraOffset);
+    float denom = depth + pc.cameraOffset;
+    if (denom < 0.001) {
+        p.brightness = 0.0;
+        particlesOut[idx] = p;
+        return;
+    }
+    float persp = pc.cameraDist / denom;
 
     p.screen_x = ryX * persp * pc.aspectRatioX;
     p.screen_y = elevY * persp * pc.aspectRatioY;
 
-    float brightness = 1.0 - (depth + pc.cameraOffset) * 0.6666;
+    float brightness = 1.0 - denom * 0.6666;
     if (brightness > 0.0 && brightness < 1.0) {
         brightness = brightness * 1.5 * brightness * brightness;
-        brightness = clamp(brightness, 0.0, 1.0);
     }
-    p.brightness = brightness;
+    p.brightness = clamp(brightness, 0.0, 1.0);
 
     // Raw hypercolor factors (mode applied in fragment shader)
     float velMagSq = p.vel_x*p.vel_x + p.vel_y*p.vel_y + p.vel_z*p.vel_z;

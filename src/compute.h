@@ -30,10 +30,12 @@ struct ComputePushConstants {
     float velocityIntensity;
     float distanceIntensity;
 };
+static_assert(sizeof(ComputePushConstants) == 96, "Must match GLSL layout");
 
 struct SingData {
     float x, y, z, pad;
 };
+static_assert(sizeof(SingData) == 16, "Single vec4 in GLSL");
 
 class Compute {
 public:
