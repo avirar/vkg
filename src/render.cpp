@@ -544,30 +544,43 @@ void Renderer::createOsdPipeline() {
 void Renderer::drawOsd(VkCommandBuffer cmd, uint32_t particleCount, float fps) {
     if (!m_osd || !m_osdPipeline) return;
 
-    char text[256];
-    snprintf(text, sizeof(text), "%.0f/%.0f fps | %u particles",
-             m_osdFps, m_osdTargetFps, particleCount);
+    // Auto-adaptive scale: char ≈ 1/40 of viewport height
+    float scale = std::max(1.5f, (float)m_engine.extent().height / 400.0f);
+
+    VkExtent2D ext = m_engine.extent();
+
+    char line1[64], line2[64];
+    snprintf(line1, sizeof(line1), "%.0f/%.0f fps", m_osdFps, m_osdTargetFps);
+    snprintf(line2, sizeof(line2), "%uk particles", particleCount / 1000);
 
     unsigned char color[4] = {0, 255, 0, 255};
-    char vertexBuf[50 * 4 * 16];
-    // stb_easy_font uses OpenGL-style coords (Y-up from bottom-left)
-    // Position at 30px from left, 40px from bottom (readable after 3x scale)
-    int numQuads = stb_easy_font_print(10, 13, text, color, vertexBuf, sizeof(vertexBuf));
+    char vertexBuf[100 * 4 * 16]; // 100 char capacity
 
-    uint32_t charCount = (uint32_t)numQuads;
-    VkDeviceSize vSize = charCount * 4 * 16;
+    // Line 1: fps (y=32 in stb_easy_font Y-up coords)
+    int q1 = stb_easy_font_print(12, 32, line1, color, vertexBuf, sizeof(vertexBuf));
+    uint32_t c1 = (uint32_t)std::max(q1, 0);
+    VkDeviceSize sz1 = c1 * 4 * 16;
+
+    // Line 2: particles (right below line 1, y=10)
+    int q2 = stb_easy_font_print(12, 10, line2, color,
+                                  vertexBuf + sz1, sizeof(vertexBuf) - sz1);
+    uint32_t c2 = (uint32_t)std::max(q2, 0);
+    VkDeviceSize sz2 = c2 * 4 * 16;
+
+    VkDeviceSize totalSize = sz1 + sz2;
+    if (totalSize == 0) return;
 
     void* data;
-    vkMapMemory(m_engine.device(), m_osdVertexMemory, 0, vSize, 0, &data);
-    memcpy(data, vertexBuf, vSize);
+    vkMapMemory(m_engine.device(), m_osdVertexMemory, 0, totalSize, 0, &data);
+    memcpy(data, vertexBuf, totalSize);
     vkUnmapMemory(m_engine.device(), m_osdVertexMemory);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_osdPipeline);
 
     float pushData[3] = {
-        1.0f / (float)m_engine.extent().width,
-        1.0f / (float)m_engine.extent().height,
-        3.0f  // scale factor
+        1.0f / (float)ext.width,
+        1.0f / (float)ext.height,
+        scale
     };
     vkCmdPushConstants(cmd, m_osdPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                        0, sizeof(pushData), pushData);
@@ -575,7 +588,7 @@ void Renderer::drawOsd(VkCommandBuffer cmd, uint32_t particleCount, float fps) {
     VkDeviceSize vOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &m_osdVertexBuffer, &vOffset);
     vkCmdBindIndexBuffer(cmd, m_osdIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(cmd, charCount * 6, 1, 0, 0, 0);
+    vkCmdDrawIndexed(cmd, (c1 + c2) * 6, 1, 0, 0, 0);
 }
 
 void Renderer::drawFrame(const SimState& state, float aspectX, float aspectY) {
