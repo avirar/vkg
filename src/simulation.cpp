@@ -53,8 +53,8 @@ void Simulation::updateCamera(float dt) {
     float degPerSec = 4.0f;
 
     m_state.orbitAngle += dt * degPerSec;
-    if (m_state.orbitAngle >= 360.0f) m_state.orbitAngle -= 360.0f;
-    if (m_state.orbitAngle < 0.0f) m_state.orbitAngle += 360.0f;
+    while (m_state.orbitAngle >= 360.0f) m_state.orbitAngle -= 360.0f;
+    while (m_state.orbitAngle < 0.0f) m_state.orbitAngle += 360.0f;
 
     m_state.wobblePhase += dt;
     m_state.sunPulse = 1.0f + 0.25f * std::sin(m_state.wobblePhase * 0.5f);
@@ -114,7 +114,7 @@ void Simulation::adjustParticleCount(float dt) {
 
     if (smoothed <= (float)m_maxCount) {
         if (smoothed >= (float)MIN_PARTICLES) {
-            m_state.particleCount = (uint32_t)std::round(smoothed);
+            m_state.particleCount = (uint32_t)std::round(std::max(0.0f, smoothed));
         } else {
             m_state.particleCount = MIN_PARTICLES;
         }
