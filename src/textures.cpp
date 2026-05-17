@@ -44,10 +44,19 @@ void Textures::createImage(uint32_t w, uint32_t h, VkImage& image, VkDeviceMemor
     ai.memoryTypeIndex = m_engine.findMemoryType(memReq.memoryTypeBits,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    if (vkAllocateMemory(m_engine.device(), &ai, nullptr, &memory) != VK_SUCCESS)
+    if (vkAllocateMemory(m_engine.device(), &ai, nullptr, &memory) != VK_SUCCESS) {
+        vkDestroyImage(m_engine.device(), image, nullptr);
+        image = VK_NULL_HANDLE;
         throw std::runtime_error("Failed to allocate texture memory");
+    }
 
-    vkBindImageMemory(m_engine.device(), image, memory, 0);
+    if (vkBindImageMemory(m_engine.device(), image, memory, 0) != VK_SUCCESS) {
+        vkDestroyImage(m_engine.device(), image, nullptr);
+        image = VK_NULL_HANDLE;
+        vkFreeMemory(m_engine.device(), memory, nullptr);
+        memory = VK_NULL_HANDLE;
+        throw std::runtime_error("Failed to bind texture memory");
+    }
 }
 
 void Textures::createImageView(VkImage image, VkFormat format, VkImageView& view) {
@@ -68,57 +77,64 @@ void Textures::uploadTexture(VkImage image, uint32_t w, uint32_t h,
                               const uint8_t* pixels) {
     VkDeviceSize size = w * h * 4;
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingMemory;
-    m_engine.createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBuffer, stagingMemory);
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
+    try {
+        m_engine.createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            stagingBuffer, stagingMemory);
 
-    void* data;
-    vkMapMemory(m_engine.device(), stagingMemory, 0, size, 0, &data);
-    memcpy(data, pixels, size);
-    vkUnmapMemory(m_engine.device(), stagingMemory);
+        void* data;
+        if (vkMapMemory(m_engine.device(), stagingMemory, 0, size, 0, &data) != VK_SUCCESS)
+            throw std::runtime_error("Failed to map staging memory");
+        memcpy(data, pixels, size);
+        vkUnmapMemory(m_engine.device(), stagingMemory);
 
-    VkCommandBuffer cmd = m_engine.beginSingleTimeCommands();
+        VkCommandBuffer cmd = m_engine.beginSingleTimeCommands();
 
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.layerCount = 1;
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.layerCount = 1;
 
-    vkCmdPipelineBarrier(cmd,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(cmd,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-    VkBufferImageCopy region{};
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.layerCount = 1;
-    region.imageExtent = {w, h, 1};
+        VkBufferImageCopy region{};
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.layerCount = 1;
+        region.imageExtent = {w, h, 1};
 
-    vkCmdCopyBufferToImage(cmd, stagingBuffer, image,
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        vkCmdCopyBufferToImage(cmd, stagingBuffer, image,
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-    vkCmdPipelineBarrier(cmd,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(cmd,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-    m_engine.endSingleTimeCommands(cmd);
+        m_engine.endSingleTimeCommands(cmd);
 
-    vkDestroyBuffer(m_engine.device(), stagingBuffer, nullptr);
-    vkFreeMemory(m_engine.device(), stagingMemory, nullptr);
+        vkDestroyBuffer(m_engine.device(), stagingBuffer, nullptr);
+        vkFreeMemory(m_engine.device(), stagingMemory, nullptr);
+    } catch (...) {
+        if (stagingBuffer) vkDestroyBuffer(m_engine.device(), stagingBuffer, nullptr);
+        if (stagingMemory) vkFreeMemory(m_engine.device(), stagingMemory, nullptr);
+        throw;
+    }
 }
 
 void Textures::createSampler() {
@@ -217,17 +233,30 @@ void Textures::createProceduralTextures() {
     createSampler();
 
     // 64x64 sun glow texture — from original binary LA data
-    {
+    try {
         createImage(SUN_TEX_W, SUN_TEX_H, m_sunTexture, m_sunTextureMemory);
         uploadTexture(m_sunTexture, SUN_TEX_W, SUN_TEX_H, sunTextureData);
         createImageView(m_sunTexture, VK_FORMAT_R8G8B8A8_UNORM, m_sunTextureView);
+    } catch (...) {
+        if (m_sunTextureView) { vkDestroyImageView(m_engine.device(), m_sunTextureView, nullptr); m_sunTextureView = VK_NULL_HANDLE; }
+        if (m_sunTexture) { vkDestroyImage(m_engine.device(), m_sunTexture, nullptr); m_sunTexture = VK_NULL_HANDLE; }
+        if (m_sunTextureMemory) { vkFreeMemory(m_engine.device(), m_sunTextureMemory, nullptr); m_sunTextureMemory = VK_NULL_HANDLE; }
+        throw;
     }
 
     // 16x16 particle glow texture — from original binary LA data
-    {
+    try {
         createImage(PARTICLE_TEX_W, PARTICLE_TEX_H, m_particleTexture, m_particleTextureMemory);
         uploadTexture(m_particleTexture, PARTICLE_TEX_W, PARTICLE_TEX_H, particleTextureData);
         createImageView(m_particleTexture, VK_FORMAT_R8G8B8A8_UNORM, m_particleTextureView);
+    } catch (...) {
+        // Clean up sun texture on particle texture failure
+        if (m_sunTextureView) { vkDestroyImageView(m_engine.device(), m_sunTextureView, nullptr); m_sunTextureView = VK_NULL_HANDLE; }
+        if (m_sunTexture) { vkDestroyImage(m_engine.device(), m_sunTexture, nullptr); m_sunTexture = VK_NULL_HANDLE; }
+        if (m_sunTextureMemory) { vkFreeMemory(m_engine.device(), m_sunTextureMemory, nullptr); m_sunTextureMemory = VK_NULL_HANDLE; }
+        if (m_particleTexture) { vkDestroyImage(m_engine.device(), m_particleTexture, nullptr); m_particleTexture = VK_NULL_HANDLE; }
+        if (m_particleTextureMemory) { vkFreeMemory(m_engine.device(), m_particleTextureMemory, nullptr); m_particleTextureMemory = VK_NULL_HANDLE; }
+        throw;
     }
 
     createDescriptorSet();
