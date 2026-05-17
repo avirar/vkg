@@ -67,8 +67,16 @@ VkShaderModule createShaderModule(VkDevice device, const std::vector<char>& code
 // Engine implementation
 #ifdef _WIN32
 Engine::Engine(HWND hwnd, HINSTANCE hInstance, bool wantHdr, bool benchmark) : m_hwnd(hwnd), m_hInstance(hInstance), m_benchmarkMode(benchmark) {
+    DEVMODEW dm = {}; dm.dmSize = sizeof(dm);
+    if (EnumDisplaySettingsW(NULL, ENUM_CURRENT_SETTINGS, &dm) && dm.dmDisplayFrequency > 0)
+        m_refreshRate = dm.dmDisplayFrequency;
 #else
 Engine::Engine(GLFWwindow* window, bool wantHdr, bool benchmark) : m_window(window), m_benchmarkMode(benchmark) {
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    if (monitor) {
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+        if (mode && mode->refreshRate > 0) m_refreshRate = (uint32_t)mode->refreshRate;
+    }
 #endif
     createInstance();
     createSurface();

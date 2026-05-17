@@ -545,8 +545,8 @@ void Renderer::drawOsd(VkCommandBuffer cmd, uint32_t particleCount, float fps) {
     if (!m_osd || !m_osdPipeline) return;
 
     char text[256];
-    snprintf(text, sizeof(text), "%.0f fps | %u particles | %.0fx",
-             fps, particleCount, m_pointScale);
+    snprintf(text, sizeof(text), "%.0f/%.0f fps | %u particles",
+             m_osdFps, m_osdTargetFps, particleCount);
 
     unsigned char color[4] = {0, 255, 0, 255};
     char vertexBuf[50 * 4 * 16];

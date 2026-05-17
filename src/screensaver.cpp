@@ -116,6 +116,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow
 
         Simulation sim(static_cast<uint32_t>(cfg.particles), static_cast<uint32_t>(cfg.singularityCount));
         if (cfg.targetFps > 0) sim.setTargetFps(cfg.targetFps);
+        else sim.setTargetFps(static_cast<int>(engine.displayRefreshRate()));
 
         Compute compute(engine);
         compute.init(sim.state().particleCount);
@@ -208,6 +209,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow
 
             if (!engine.beginFrame()) continue;
             renderer.setOsdStats(compute.particleCount(), currentFps);
+            renderer.setOsdTargetFps(sim.targetFps());
             renderer.drawFrame(s, s.aspectRatioX, s.aspectRatioY);
             engine.endFrame();
 

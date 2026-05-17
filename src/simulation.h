@@ -32,6 +32,7 @@ public:
 
     const SimState& state() const { return m_state; }
     uint32_t maxParticles() const { return m_state.particleCount; }
+    float targetFps() const { return 1.0f / m_targetSpeed; }
 
 private:
     void updateCamera(float dt);

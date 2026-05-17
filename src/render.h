@@ -44,6 +44,7 @@ public:
     void setParticleColors(const Config& cfg);
     void setOsd(bool osd) { m_osd = osd; }
     void setOsdStats(uint32_t count, float fps) { m_osdParticles = count; m_osdFps = fps; }
+    void setOsdTargetFps(float fps) { m_osdTargetFps = fps; }
     void drawFrame(const SimState& state, float aspectX, float aspectY);
     void recordSunGeometryInit(VkCommandBuffer cmd);
     void cleanupSunInitStaging();
@@ -84,6 +85,7 @@ private:
     bool m_osd = false;
     uint32_t m_osdParticles = 0;
     float m_osdFps = 0.0f;
+    float m_osdTargetFps = 0.0f;
 
     std::vector<VkCommandBuffer> m_commandBuffers;
 

@@ -110,6 +110,7 @@ int main(int argc, char** argv) {
 
         Simulation sim(debugMode ? 1 : (uint32_t)cfg.particles, (uint32_t)cfg.singularityCount);
         if (cfg.targetFps > 0) sim.setTargetFps(cfg.targetFps);
+        else sim.setTargetFps((int)engine.displayRefreshRate());
         Compute compute(engine);
         compute.init(sim.state().particleCount);
 
@@ -250,6 +251,7 @@ int main(int argc, char** argv) {
 
             if (!engine.beginFrame()) continue;
             renderer.setOsdStats(compute.particleCount(), currentFps);
+            renderer.setOsdTargetFps(sim.targetFps());
             renderer.drawFrame(s, s.aspectRatioX, s.aspectRatioY);
             engine.endFrame();
 

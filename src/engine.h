@@ -42,6 +42,7 @@ public:
     bool hdrEnabled() const { return m_hdrEnabled; }
     void setHdrMaxLuminance(float lum) { m_hdrMaxLuminance = lum; }
     void toggleHdr();
+    uint32_t displayRefreshRate() const { return m_refreshRate; }
 
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer cmd);
@@ -100,6 +101,7 @@ private:
     VkColorSpaceKHR m_colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     float m_hdrMaxLuminance = 1000.0f;
     bool m_benchmarkMode = false;
+    uint32_t m_refreshRate = 60;
 
     QueueFamilyIndices m_queueFamilies;
     SwapChainSupport m_swapChainSupport;
